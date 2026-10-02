@@ -7,24 +7,17 @@ import { syncSleeperData } from "@/lib/sync";
 
 export async function createTeam(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
-  const ownerName = String(formData.get("ownerName") ?? "").trim();
   if (!name) return;
 
-  await prisma.team.create({
-    data: { name, ownerName: ownerName || null },
-  });
+  await prisma.team.create({ data: { name } });
   revalidatePath("/");
 }
 
 export async function updateTeam(teamId: string, formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
-  const ownerName = String(formData.get("ownerName") ?? "").trim();
   if (!name) return;
 
-  await prisma.team.update({
-    where: { id: teamId },
-    data: { name, ownerName: ownerName || null },
-  });
+  await prisma.team.update({ where: { id: teamId }, data: { name } });
   revalidatePath("/");
   revalidatePath("/matchups");
   revalidatePath("/standings");

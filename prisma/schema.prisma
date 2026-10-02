@@ -14,11 +14,12 @@ datasource db {
   directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
-// One fantasy team in the league.
+// One fantasy team in the league. `name` doubles as its schedule identifier
+// (see src/lib/schedule.ts) — matched case-insensitively, so renaming a team
+// means updating the schedule to match.
 model Team {
   id        String   @id @default(cuid())
   name      String
-  ownerName String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

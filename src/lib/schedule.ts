@@ -1,40 +1,38 @@
 // This league's 6-team schedule: a full round robin takes 5 weeks (every team
 // plays every other team once), and that 5-week cycle repeats for the rest of
-// the 14-week season. Teams are identified by Sleeper username — matched
-// against Team.ownerName (case-insensitive) when rendering, not by team
-// display name, since display names change more often than usernames.
+// the 14-week season. Teams are identified by their Team.name (case-insensitive).
 export const SEASON_WEEKS = 14;
 
 type Pairing = readonly [string, string];
 
 // Weeks 1-5. Week w > 5 reuses cycle[(w - 1) % 5] — e.g. week 14 reuses
-// week 4's pairings (barclaydale vs. jhavertine), which is what makes
-// jhavertine barclaydale's week-14 opponent.
+// week 4's pairings (Barclay vs. Julia), which is what makes Julia Barclay's
+// week-14 opponent.
 const CYCLE: readonly Pairing[][] = [
   [
-    ["barclaydale", "seanmac12"],
-    ["jhavertine", "gracewakiyama"],
-    ["katiegerber14", "splechner"],
+    ["Barclay", "Sean"],
+    ["Julia", "Grace"],
+    ["Katie", "Sophie"],
   ],
   [
-    ["barclaydale", "splechner"],
-    ["katiegerber14", "jhavertine"],
-    ["gracewakiyama", "seanmac12"],
+    ["Barclay", "Sophie"],
+    ["Katie", "Julia"],
+    ["Grace", "Sean"],
   ],
   [
-    ["barclaydale", "katiegerber14"],
-    ["jhavertine", "seanmac12"],
-    ["splechner", "gracewakiyama"],
+    ["Barclay", "Katie"],
+    ["Julia", "Sean"],
+    ["Sophie", "Grace"],
   ],
   [
-    ["barclaydale", "jhavertine"],
-    ["splechner", "seanmac12"],
-    ["katiegerber14", "gracewakiyama"],
+    ["Barclay", "Julia"],
+    ["Sophie", "Sean"],
+    ["Katie", "Grace"],
   ],
   [
-    ["barclaydale", "gracewakiyama"],
-    ["katiegerber14", "seanmac12"],
-    ["splechner", "jhavertine"],
+    ["Barclay", "Grace"],
+    ["Katie", "Sean"],
+    ["Sophie", "Julia"],
   ],
 ];
 

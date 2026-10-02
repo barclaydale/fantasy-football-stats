@@ -4,7 +4,7 @@ import { EmptyState, TableShell, td, th, tr } from "../ui";
 
 export default async function StandingsPage() {
   const syncState = await prisma.syncState.findUnique({ where: { id: 1 } });
-  const teams = await prisma.team.findMany({ select: { id: true, name: true, ownerName: true } });
+  const teams = await prisma.team.findMany({ select: { id: true, name: true } });
 
   const season = syncState?.season;
   const throughWeek = Math.max(0, (syncState?.week ?? 1) - 1);
@@ -45,10 +45,7 @@ export default async function StandingsPage() {
             {rows.map(({ team, record }, i) => (
               <tr key={team.id} className={tr}>
                 <td className={`${td} text-muted`}>{i + 1}</td>
-                <td className={td}>
-                  <div className="font-medium">{team.name}</div>
-                  {team.ownerName && <div className="text-xs text-muted">@{team.ownerName}</div>}
-                </td>
+                <td className={`${td} font-medium`}>{team.name}</td>
                 <td className={td}>
                   {record ? `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""}` : "0-0"}
                 </td>

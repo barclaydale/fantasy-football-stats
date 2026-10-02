@@ -171,7 +171,6 @@ export default async function Home({
         </div>
         <form action={createTeam} className="flex flex-wrap gap-2">
           <TextInput name="name" placeholder="Team name" required />
-          <TextInput name="ownerName" placeholder="Owner (optional)" />
           <Button type="submit">Add team</Button>
         </form>
 
@@ -185,7 +184,6 @@ export default async function Home({
                   <EditTeamInfo
                     teamId={team.id}
                     name={team.name}
-                    ownerName={team.ownerName}
                     playerCount={team.players.length}
                   />
                   <form action={deleteTeam.bind(null, team.id)}>

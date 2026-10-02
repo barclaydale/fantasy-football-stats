@@ -6,14 +6,12 @@ import { computeStandings } from "@/lib/standings";
 import { Card, EmptyState } from "../ui";
 
 function TeamSide({
-  ownerName,
   teamName,
   record,
   score,
   winPct,
   align,
 }: {
-  ownerName: string;
   teamName: string;
   record: string | null;
   score: TeamWeekScore | null;
@@ -25,7 +23,6 @@ function TeamSide({
 
   return (
     <div className={`flex flex-1 flex-col gap-1 ${items}`}>
-      <span className="text-xs text-muted">@{ownerName}</span>
       <span className="font-semibold">{teamName}</span>
       <span className="text-2xl font-bold">{score ? score.total.toFixed(1) : "—"}</span>
       <div className="flex items-center gap-2 text-xs text-muted">
@@ -51,10 +48,8 @@ export default async function MatchupsPage({
   const defaultWeek = syncState?.week ?? 1;
   const week = Math.min(SEASON_WEEKS, Math.max(1, Number(rawWeek) || defaultWeek));
 
-  const teams = await prisma.team.findMany({ select: { id: true, name: true, ownerName: true } });
-  const teamByOwner = new Map(
-    teams.filter((t) => t.ownerName).map((t) => [t.ownerName!.toLowerCase(), t]),
-  );
+  const teams = await prisma.team.findMany({ select: { id: true, name: true } });
+  const teamByName = new Map(teams.map((t) => [t.name.toLowerCase(), t]));
 
   const pairs = matchupsForWeek(week);
   const season = syncState?.season;
@@ -66,9 +61,9 @@ export default async function MatchupsPage({
 
   const matchups = season
     ? await Promise.all(
-        pairs.map(async ([ownerA, ownerB]) => {
-          const teamA = teamByOwner.get(ownerA.toLowerCase());
-          const teamB = teamByOwner.get(ownerB.toLowerCase());
+        pairs.map(async ([nameA, nameB]) => {
+          const teamA = teamByName.get(nameA.toLowerCase());
+          const teamB = teamByName.get(nameB.toLowerCase());
           const [scoreA, scoreB] = await Promise.all([
             computeTeamWeekScore(teamA?.id, season, week, seasonType),
             computeTeamWeekScore(teamB?.id, season, week, seasonType),
@@ -76,7 +71,7 @@ export default async function MatchupsPage({
           const winPct = teamA && teamB ? winProbability(scoreA, scoreB) : null;
           const recordA = teamA ? records.get(teamA.id) : null;
           const recordB = teamB ? records.get(teamB.id) : null;
-          return { ownerA, ownerB, teamA, teamB, scoreA, scoreB, winPct, recordA, recordB };
+          return { nameA, nameB, teamA, teamB, scoreA, scoreB, winPct, recordA, recordB };
         }),
       )
     : [];
@@ -110,15 +105,14 @@ export default async function MatchupsPage({
         <EmptyState>No synced data yet — run a sync from the home page.</EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
-          {matchups.map(({ ownerA, ownerB, teamA, teamB, scoreA, scoreB, winPct, recordA, recordB }) => {
+          {matchups.map(({ nameA, nameB, teamA, teamB, scoreA, scoreB, winPct, recordA, recordB }) => {
             const leftPct = winPct != null ? winPct : null;
             const rightPct = winPct != null ? 1 - winPct : null;
             return (
-              <Card key={`${ownerA}-${ownerB}`}>
+              <Card key={`${nameA}-${nameB}`}>
                 <div className="flex items-start justify-between gap-4">
                   <TeamSide
-                    ownerName={ownerA}
-                    teamName={teamA?.name ?? ownerA}
+                    teamName={teamA?.name ?? nameA}
                     record={recordA ? `${recordA.wins}-${recordA.losses}` : null}
                     score={teamA ? scoreA : null}
                     winPct={leftPct}
@@ -128,8 +122,7 @@ export default async function MatchupsPage({
                     VS
                   </span>
                   <TeamSide
-                    ownerName={ownerB}
-                    teamName={teamB?.name ?? ownerB}
+                    teamName={teamB?.name ?? nameB}
                     record={recordB ? `${recordB.wins}-${recordB.losses}` : null}
                     score={teamB ? scoreB : null}
                     winPct={rightPct}
@@ -150,8 +143,8 @@ export default async function MatchupsPage({
                 )}
                 {(!teamA || !teamB) && (
                   <p className="mt-3 text-xs text-muted">
-                    {!teamA && `No team set up for @${ownerA} yet (set a team's owner to match). `}
-                    {!teamB && `No team set up for @${ownerB} yet (set a team's owner to match).`}
+                    {!teamA && `No team named "${nameA}" yet. `}
+                    {!teamB && `No team named "${nameB}" yet.`}
                   </p>
                 )}
               </Card>

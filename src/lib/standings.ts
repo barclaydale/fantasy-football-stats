@@ -19,10 +19,8 @@ export async function computeStandings(
   seasonType: string,
   throughWeek: number,
 ): Promise<Map<string, TeamRecord>> {
-  const teams = await prisma.team.findMany({ select: { id: true, ownerName: true } });
-  const teamByOwner = new Map(
-    teams.filter((t) => t.ownerName).map((t) => [t.ownerName!.toLowerCase(), t.id]),
-  );
+  const teams = await prisma.team.findMany({ select: { id: true, name: true } });
+  const teamByName = new Map(teams.map((t) => [t.name.toLowerCase(), t.id]));
 
   const starters = await prisma.player.findMany({
     where: { fantasyTeamId: { not: null }, rosterSlot: { not: "BN" } },
@@ -58,9 +56,9 @@ export async function computeStandings(
   );
 
   for (let week = 1; week <= throughWeek; week++) {
-    for (const [ownerA, ownerB] of matchupsForWeek(week)) {
-      const teamAId = teamByOwner.get(ownerA.toLowerCase());
-      const teamBId = teamByOwner.get(ownerB.toLowerCase());
+    for (const [nameA, nameB] of matchupsForWeek(week)) {
+      const teamAId = teamByName.get(nameA.toLowerCase());
+      const teamBId = teamByName.get(nameB.toLowerCase());
       if (!teamAId || !teamBId) continue;
 
       const scoreA = scores.get(teamAId)?.get(week) ?? 0;
