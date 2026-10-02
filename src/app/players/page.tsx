@@ -9,7 +9,7 @@ function isPosition(value: string | undefined): value is Position {
   return !!value && (POSITIONS as readonly string[]).includes(value);
 }
 
-export default async function StatsPage({
+export default async function PlayersPage({
   searchParams,
 }: {
   searchParams: Promise<{ position?: string }>;
@@ -65,14 +65,14 @@ export default async function StatsPage({
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6 sm:p-8">
       <div className="flex flex-col gap-1">
         <BackLink href="/">Teams</BackLink>
-        <h1 className="text-xl font-semibold">Season Stats{season ? ` — ${season}` : ""}</h1>
+        <h1 className="text-xl font-semibold">Players{season ? ` — ${season}` : ""}</h1>
       </div>
 
       <nav className="flex flex-wrap gap-2">
         {POSITIONS.map((pos) => (
           <Link
             key={pos}
-            href={`/stats?position=${pos}`}
+            href={`/players?position=${pos}`}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               pos === position
                 ? "bg-accent text-accent-foreground"

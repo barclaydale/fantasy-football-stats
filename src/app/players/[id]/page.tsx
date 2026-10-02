@@ -70,7 +70,7 @@ export default async function PlayerPage({
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6 sm:p-8">
-      <BackLink href="/stats">Stats</BackLink>
+      <BackLink href="/players">Players</BackLink>
 
       <div>
         <h1 className="text-2xl font-semibold">{player.fullName ?? player.id}</h1>
