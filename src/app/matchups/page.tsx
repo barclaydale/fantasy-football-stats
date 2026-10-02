@@ -10,9 +10,9 @@ import { Card, EmptyState } from "../ui";
 export default async function MatchupsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ week?: string }>;
+  searchParams: Promise<{ week?: string; match?: string }>;
 }) {
-  const { week: rawWeek } = await searchParams;
+  const { week: rawWeek, match: rawMatch } = await searchParams;
   const syncState = await prisma.syncState.findUnique({ where: { id: 1 } });
 
   const defaultWeek = syncState?.week ?? 1;
@@ -22,6 +22,9 @@ export default async function MatchupsPage({
   const teamByName = new Map(teams.map((t) => [t.name.toLowerCase(), t]));
 
   const pairs = matchupsForWeek(week);
+  const matchIndex = Math.min(pairs.length - 1, Math.max(0, Number(rawMatch) || 0));
+  const [nameA, nameB] = pairs[matchIndex] ?? [];
+
   const season = syncState?.season;
   const seasonType = syncState?.seasonType ?? "regular";
 
@@ -29,22 +32,18 @@ export default async function MatchupsPage({
     ? await computeStandings(season, seasonType, Math.max(0, (syncState?.week ?? 1) - 1))
     : new Map();
 
-  const matchups = season
-    ? await Promise.all(
-        pairs.map(async ([nameA, nameB]) => {
-          const teamA = teamByName.get(nameA.toLowerCase());
-          const teamB = teamByName.get(nameB.toLowerCase());
-          const [scoreA, scoreB] = await Promise.all([
-            computeTeamWeekScore(teamA?.id, season, week, seasonType),
-            computeTeamWeekScore(teamB?.id, season, week, seasonType),
-          ]);
-          const winPct = teamA && teamB ? winProbability(scoreA, scoreB) : null;
-          const recordA = teamA ? records.get(teamA.id) : null;
-          const recordB = teamB ? records.get(teamB.id) : null;
-          return { nameA, nameB, teamA, teamB, scoreA, scoreB, winPct, recordA, recordB };
-        }),
-      )
-    : [];
+  const teamA = nameA ? teamByName.get(nameA.toLowerCase()) : undefined;
+  const teamB = nameB ? teamByName.get(nameB.toLowerCase()) : undefined;
+
+  const [scoreA, scoreB] = season
+    ? await Promise.all([
+        computeTeamWeekScore(teamA?.id, season, week, seasonType),
+        computeTeamWeekScore(teamB?.id, season, week, seasonType),
+      ])
+    : [null, null];
+  const winPct = season && teamA && teamB && scoreA && scoreB ? winProbability(scoreA, scoreB) : null;
+  const recordA = teamA ? records.get(teamA.id) : null;
+  const recordB = teamB ? records.get(teamB.id) : null;
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6 sm:p-8">
@@ -74,58 +73,71 @@ export default async function MatchupsPage({
       {!season ? (
         <EmptyState>No synced data yet — run a sync from the home page.</EmptyState>
       ) : (
-        <div className="flex flex-col gap-4">
-          {matchups.map(({ nameA, nameB, teamA, teamB, scoreA, scoreB, winPct, recordA, recordB }) => {
-            const leftPct = winPct != null ? winPct : null;
-            const rightPct = winPct != null ? 1 - winPct : null;
-            return (
-              <Card key={`${nameA}-${nameB}`}>
-                <div className="flex items-start justify-between gap-4">
-                  <TeamSide
-                    teamName={teamA?.name ?? nameA}
-                    record={recordA ? `${recordA.wins}-${recordA.losses}` : null}
-                    score={teamA ? scoreA : null}
-                    winPct={leftPct}
-                    align="left"
+        <>
+          <nav className="flex flex-wrap gap-2">
+            {pairs.map(([pa, pb], i) => (
+              <Link
+                key={`${pa}-${pb}`}
+                href={`/matchups?week=${week}&match=${i}`}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  i === matchIndex
+                    ? "bg-accent text-accent-foreground"
+                    : "border border-border text-muted hover:border-accent hover:text-foreground"
+                }`}
+              >
+                {teamByName.get(pa.toLowerCase())?.name ?? pa} vs{" "}
+                {teamByName.get(pb.toLowerCase())?.name ?? pb}
+              </Link>
+            ))}
+          </nav>
+
+          {nameA && nameB && (
+            <Card>
+              <div className="flex items-start justify-between gap-4">
+                <TeamSide
+                  teamName={teamA?.name ?? nameA}
+                  record={recordA ? `${recordA.wins}-${recordA.losses}` : null}
+                  score={teamA ? scoreA : null}
+                  winPct={winPct}
+                  align="left"
+                />
+                <span className="mt-6 shrink-0 rounded-full bg-surface-hover px-3 py-1 text-xs font-semibold text-muted">
+                  VS
+                </span>
+                <TeamSide
+                  teamName={teamB?.name ?? nameB}
+                  record={recordB ? `${recordB.wins}-${recordB.losses}` : null}
+                  score={teamB ? scoreB : null}
+                  winPct={winPct != null ? 1 - winPct : null}
+                  align="right"
+                />
+              </div>
+              {winPct != null && (
+                <div className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-border">
+                  <div
+                    className="h-full"
+                    style={{ width: `${winPct * 100}%`, backgroundColor: "var(--accent)" }}
                   />
-                  <span className="mt-6 shrink-0 rounded-full bg-surface-hover px-3 py-1 text-xs font-semibold text-muted">
-                    VS
-                  </span>
-                  <TeamSide
-                    teamName={teamB?.name ?? nameB}
-                    record={recordB ? `${recordB.wins}-${recordB.losses}` : null}
-                    score={teamB ? scoreB : null}
-                    winPct={rightPct}
-                    align="right"
+                  <div
+                    className="h-full"
+                    style={{ width: `${(1 - winPct) * 100}%`, backgroundColor: "var(--danger)" }}
                   />
                 </div>
-                {winPct != null && (
-                  <div className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-border">
-                    <div
-                      className="h-full"
-                      style={{ width: `${winPct * 100}%`, backgroundColor: "var(--accent)" }}
-                    />
-                    <div
-                      className="h-full"
-                      style={{ width: `${(1 - winPct) * 100}%`, backgroundColor: "var(--danger)" }}
-                    />
-                  </div>
-                )}
-                {(!teamA || !teamB) && (
-                  <p className="mt-3 text-xs text-muted">
-                    {!teamA && `No team named "${nameA}" yet. `}
-                    {!teamB && `No team named "${nameB}" yet.`}
-                  </p>
-                )}
-                {(scoreA.players.length > 0 || scoreB.players.length > 0) && (
-                  <div className="mt-4 border-t border-border pt-3">
-                    <MatchupStarters rows={pairStarters(scoreA.players, scoreB.players)} />
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
+              )}
+              {(!teamA || !teamB) && (
+                <p className="mt-3 text-xs text-muted">
+                  {!teamA && `No team named "${nameA}" yet. `}
+                  {!teamB && `No team named "${nameB}" yet.`}
+                </p>
+              )}
+              {scoreA && scoreB && (scoreA.players.length > 0 || scoreB.players.length > 0) && (
+                <div className="mt-4 border-t border-border pt-3">
+                  <MatchupStarters rows={pairStarters(scoreA.players, scoreB.players)} />
+                </div>
+              )}
+            </Card>
+          )}
+        </>
       )}
     </main>
   );
