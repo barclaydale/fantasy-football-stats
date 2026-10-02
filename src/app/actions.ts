@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { eligibleSlots, slotInfo } from "@/lib/roster-slots";
 import { syncSleeperData } from "@/lib/sync";
 
 export async function createTeam(formData: FormData) {
@@ -25,18 +26,31 @@ export async function assignPlayerToTeam(playerId: string, formData: FormData) {
   await prisma.player.update({
     where: { id: playerId },
     // Reset to bench on every reassignment (including dropping to free agency)
-    // so a player never shows up already "active" on a new team by accident.
-    data: { fantasyTeamId: fantasyTeamId || null, rosterStatus: "bench" },
+    // so a player never shows up already slotted in on a new team by accident.
+    data: { fantasyTeamId: fantasyTeamId || null, rosterSlot: "BN" },
   });
   revalidatePath("/");
 }
 
-export async function toggleRosterStatus(playerId: string) {
-  await prisma.$executeRaw`
-    UPDATE "Player"
-    SET "rosterStatus" = CASE WHEN "rosterStatus" = 'active' THEN 'bench' ELSE 'active' END
-    WHERE "id" = ${playerId}
-  `;
+export async function setRosterSlot(playerId: string, formData: FormData) {
+  const requestedSlot = String(formData.get("rosterSlot") ?? "").trim();
+
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: { position: true, fantasyTeamId: true },
+  });
+  if (!player?.fantasyTeamId) return;
+
+  const allowed = eligibleSlots(player.position).some((s) => s.key === requestedSlot);
+  if (!allowed) return;
+
+  const capacity = slotInfo(requestedSlot).capacity;
+  const occupied = await prisma.player.count({
+    where: { fantasyTeamId: player.fantasyTeamId, rosterSlot: requestedSlot, id: { not: playerId } },
+  });
+  if (occupied >= capacity) return;
+
+  await prisma.player.update({ where: { id: playerId }, data: { rosterSlot: requestedSlot } });
   revalidatePath("/");
 }
 

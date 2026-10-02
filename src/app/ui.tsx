@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
+import { slotColor } from "@/lib/roster-slots";
 
 export function Card({
   className = "",
@@ -40,6 +41,20 @@ export function InjuryBadge({
     >
       {display?.label ?? status}
       {bodyPart ? ` · ${bodyPart}` : ""}
+    </span>
+  );
+}
+
+// Sleeper's own per-position colors (see src/lib/roster-slots.ts for source).
+export function PositionTag({ position }: { position: string | null | undefined }) {
+  if (!position) return <span className="text-muted">—</span>;
+  const color = slotColor(position);
+  return (
+    <span
+      className="font-semibold"
+      style={{ color }}
+    >
+      {position}
     </span>
   );
 }

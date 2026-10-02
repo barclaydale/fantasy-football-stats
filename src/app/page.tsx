@@ -1,35 +1,41 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { ROSTER_SLOTS, SLOT_ORDER } from "@/lib/roster-slots";
 import { createTeam, deleteTeam, runManualSync } from "./actions";
 import { EditTeamControl } from "./edit-team-control";
-import { RosterStatusToggle } from "./roster-status-toggle";
+import { PositionSlotSelect } from "./position-slot-select";
+import { SearchForm } from "./search-form";
 import { TeamSelect } from "./team-select";
-import { Button, Card, EmptyState, GhostButton, InjuryBadge, TextInput } from "./ui";
+import { Button, Card, EmptyState, GhostButton, InjuryBadge, PositionTag, TextInput } from "./ui";
+
+type RosterPlayer = {
+  id: string;
+  fullName: string | null;
+  position: string | null;
+  nflTeam: string | null;
+  injuryStatus: string | null;
+  fantasyTeamId: string | null;
+  rosterSlot: string;
+};
 
 function PlayerRow({
   player,
   pts,
   teams,
+  openSlots,
 }: {
-  player: {
-    id: string;
-    fullName: string | null;
-    position: string | null;
-    nflTeam: string | null;
-    injuryStatus: string | null;
-    fantasyTeamId: string | null;
-    rosterStatus: string;
-  };
+  player: RosterPlayer;
   pts: number | null | undefined;
   teams: { id: string; name: string }[];
+  openSlots: Set<string>;
 }) {
   const rostered = player.fantasyTeamId != null;
-  const isActive = player.rosterStatus === "active";
+  const benched = rostered && player.rosterSlot === "BN";
 
   return (
     <li
       className={`flex flex-wrap items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-surface-hover ${
-        rostered && !isActive ? "opacity-60" : ""
+        benched ? "opacity-60" : ""
       }`}
     >
       <div className="flex min-w-0 items-center gap-2 text-sm">
@@ -40,7 +46,7 @@ function PlayerRow({
           {player.fullName ?? "Unknown player"}
         </Link>
         <span className="shrink-0 text-muted">
-          {player.position ?? "—"}
+          <PositionTag position={player.position} />
           {player.nflTeam ? ` · ${player.nflTeam}` : ""}
         </span>
         {player.injuryStatus && <InjuryBadge status={player.injuryStatus} />}
@@ -48,8 +54,15 @@ function PlayerRow({
           <span className="shrink-0 font-medium text-accent">{pts.toFixed(1)} pts</span>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-3">
-        {rostered && <RosterStatusToggle playerId={player.id} isActive={isActive} />}
+      <div className="flex shrink-0 items-center gap-2">
+        {rostered && (
+          <PositionSlotSelect
+            playerId={player.id}
+            position={player.position}
+            rosterSlot={player.rosterSlot}
+            openSlots={openSlots}
+          />
+        )}
         {rostered ? (
           <EditTeamControl playerId={player.id} fantasyTeamId={player.fantasyTeamId} teams={teams} />
         ) : (
@@ -70,11 +83,10 @@ export default async function Home({
 
   const syncState = await prisma.syncState.findUnique({ where: { id: 1 } });
 
-  const [teams, freeAgents] = await Promise.all([
+  const [teamsRaw, freeAgents] = await Promise.all([
     prisma.team.findMany({
       orderBy: { name: "asc" },
-      // "active" sorts before "bench" alphabetically, so starters land on top.
-      include: { players: { orderBy: [{ rosterStatus: "asc" }, { fullName: "asc" }] } },
+      include: { players: { orderBy: { fullName: "asc" } } },
     }),
     prisma.player.findMany({
       where: {
@@ -85,6 +97,28 @@ export default async function Home({
       take: 50,
     }),
   ]);
+
+  // Lineup order (QB, RB, WR, TE, FLEX, K, DEF, then bench) instead of alphabetical.
+  const teams = teamsRaw.map((team) => ({
+    ...team,
+    players: [...team.players].sort(
+      (a, b) =>
+        SLOT_ORDER.indexOf(a.rosterSlot) - SLOT_ORDER.indexOf(b.rosterSlot) ||
+        (a.fullName ?? "").localeCompare(b.fullName ?? ""),
+    ),
+  }));
+
+  // Which slots still have room on each team, for the slot dropdowns' options.
+  const openSlotsByTeam = new Map<string, Set<string>>();
+  for (const team of teams) {
+    const counts = new Map<string, number>();
+    for (const p of team.players) counts.set(p.rosterSlot, (counts.get(p.rosterSlot) ?? 0) + 1);
+    const open = new Set<string>();
+    for (const slot of ROSTER_SLOTS) {
+      if ((counts.get(slot.key) ?? 0) < slot.capacity) open.add(slot.key);
+    }
+    openSlotsByTeam.set(team.id, open);
+  }
 
   const allShownIds = [
     ...teams.flatMap((t) => t.players.map((p) => p.id)),
@@ -165,6 +199,7 @@ export default async function Home({
                       player={player}
                       pts={ptsByPlayer.get(player.id)}
                       teams={teams}
+                      openSlots={openSlotsByTeam.get(team.id) ?? new Set()}
                     />
                   ))}
                   {team.players.length === 0 && (
@@ -179,15 +214,7 @@ export default async function Home({
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold">Players</h2>
-        <form className="flex gap-2">
-          <TextInput
-            name="q"
-            defaultValue={query ?? ""}
-            placeholder="Search players by name…"
-            className="w-64"
-          />
-          <Button type="submit">Search</Button>
-        </form>
+        <SearchForm defaultValue={query ?? ""} />
 
         <Card>
           <h3 className="mb-2 text-sm font-medium text-muted">
@@ -200,6 +227,7 @@ export default async function Home({
                 player={player}
                 pts={ptsByPlayer.get(player.id)}
                 teams={teams}
+                openSlots={new Set()}
               />
             ))}
             {freeAgents.length === 0 && (

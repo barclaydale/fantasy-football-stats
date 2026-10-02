@@ -53,9 +53,10 @@ model Player {
 
   fantasyTeamId String?
   fantasyTeam   Team?   @relation(fields: [fantasyTeamId], references: [id], onDelete: SetNull)
-  // Starting lineup vs bench, within whichever fantasy team rosters them.
-  // Meaningless for free agents (fantasyTeamId null) — ignored there.
-  rosterStatus  String  @default("bench") // active | bench
+  // Which lineup slot they fill on that fantasy team: QB | RB | WR | TE | WRT
+  // (flex) | K | DEF | BN (bench). Meaningless for free agents (fantasyTeamId
+  // null) — ignored there. Slot capacities live in src/lib/roster-slots.ts.
+  rosterSlot String @default("BN")
 
   statLines   PlayerStatLine[]
   projections PlayerProjection[]

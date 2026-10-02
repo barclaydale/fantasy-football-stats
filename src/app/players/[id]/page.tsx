@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { BackLink, Card, EmptyState, InjuryBadge, TableShell, td, th, tr } from "../../ui";
+import { BackLink, Card, EmptyState, InjuryBadge, PositionTag, TableShell, td, th, tr } from "../../ui";
 
 function StatTile({ label, value }: { label: string; value: string | number }) {
   return (
@@ -76,7 +76,7 @@ export default async function PlayerPage({
         <h1 className="text-2xl font-semibold">{player.fullName ?? player.id}</h1>
         <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
           <span>
-            {player.position ?? "—"} · {player.nflTeam ?? "Free agent"}
+            <PositionTag position={player.position} /> · {player.nflTeam ?? "Free agent"}
           </span>
           {player.injuryStatus && (
             <InjuryBadge status={player.injuryStatus} bodyPart={player.injuryBodyPart} />
