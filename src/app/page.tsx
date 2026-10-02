@@ -182,7 +182,9 @@ export default async function Home({
               <Card key={team.id} className="flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h2 className="font-semibold">{team.name}</h2>
+                    <h2 className="font-semibold">
+                      {team.name} <span className="text-muted">({team.players.length})</span>
+                    </h2>
                     {team.ownerName && <p className="text-sm text-muted">{team.ownerName}</p>}
                   </div>
                   <form action={deleteTeam.bind(null, team.id)}>
