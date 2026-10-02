@@ -19,7 +19,7 @@ export function TeamSelect({
         name="fantasyTeamId"
         defaultValue={fantasyTeamId ?? ""}
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
-        className="rounded border border-gray-300 bg-background px-2 py-1 text-sm"
+        className="rounded border border-border bg-surface px-2 py-1 text-sm text-foreground"
       >
         <option value="">Free agent</option>
         {teams.map((team) => (

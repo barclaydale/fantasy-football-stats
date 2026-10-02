@@ -25,16 +25,16 @@ function PlayerLine({
         <Link href={`/players/${player.id}`} className="hover:underline">
           {player.fullName ?? "Unknown player"}
         </Link>{" "}
-        <span className="text-gray-500">
+        <span className="text-muted">
           ({player.position ?? "—"}
           {player.nflTeam ? ` · ${player.nflTeam}` : ""})
         </span>
         {player.injuryStatus && (
-          <span className="ml-1 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">
+          <span className="ml-1 rounded bg-danger-bg px-1.5 py-0.5 text-xs text-danger">
             {player.injuryStatus}
           </span>
         )}
-        {pts != null && <span className="ml-2 text-gray-500">{pts.toFixed(1)} pts</span>}
+        {pts != null && <span className="ml-2 text-muted">{pts.toFixed(1)} pts</span>}
       </span>
       <TeamSelect playerId={player.id} fantasyTeamId={player.fantasyTeamId} teams={teams} />
     </li>
@@ -87,26 +87,26 @@ export default async function Home({
       <div>
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold">Welcome to Fantasy Football Stats</h1>
-          <Link href="/stats" className="text-sm text-gray-600 hover:underline">
+          <Link href="/stats" className="text-sm text-muted hover:underline">
             Season stats →
           </Link>
         </div>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-muted">
           {syncState?.lastSyncedAt
             ? `Synced from Sleeper: season ${syncState.season}, week ${syncState.week} (${syncState.seasonType}), last run ${syncState.lastSyncedAt.toLocaleString()}.`
             : "Not synced yet — run a sync below to pull players and stats from Sleeper."}
           {syncState?.lastError && (
-            <span className="ml-2 text-red-600">Last sync error: {syncState.lastError}</span>
+            <span className="ml-2 text-danger">Last sync error: {syncState.lastError}</span>
           )}
         </p>
         <form action={runManualSync} className="mt-3 flex items-center gap-2">
-          <label className="flex items-center gap-1 text-sm text-gray-600">
+          <label className="flex items-center gap-1 text-sm text-muted">
             <input type="checkbox" name="backfillWeeks" />
             Backfill the whole season (first run only — slower)
           </label>
           <button
             type="submit"
-            className="rounded bg-foreground px-3 py-1 text-sm text-background"
+            className="rounded bg-accent px-3 py-1 text-sm font-medium text-accent-foreground hover:bg-accent-bright"
           >
             Sync now
           </button>
@@ -120,16 +120,16 @@ export default async function Home({
             name="name"
             placeholder="Team name"
             required
-            className="rounded border border-gray-300 px-2 py-1 text-sm"
+            className="rounded border border-border bg-surface px-2 py-1 text-sm text-foreground"
           />
           <input
             name="ownerName"
             placeholder="Owner (optional)"
-            className="rounded border border-gray-300 px-2 py-1 text-sm"
+            className="rounded border border-border bg-surface px-2 py-1 text-sm text-foreground"
           />
           <button
             type="submit"
-            className="rounded bg-foreground px-3 py-1 text-sm text-background"
+            className="rounded bg-accent px-3 py-1 text-sm font-medium text-accent-foreground hover:bg-accent-bright"
           >
             Add team
           </button>
@@ -137,16 +137,16 @@ export default async function Home({
 
         <div className="flex flex-col gap-4">
           {teams.map((team) => (
-            <div key={team.id} className="rounded border border-gray-200 p-4">
+            <div key={team.id} className="rounded border border-border bg-surface p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-medium">{team.name}</h3>
                   {team.ownerName && (
-                    <p className="text-sm text-gray-500">{team.ownerName}</p>
+                    <p className="text-sm text-muted">{team.ownerName}</p>
                   )}
                 </div>
                 <form action={deleteTeam.bind(null, team.id)}>
-                  <button type="submit" className="text-sm text-red-600">
+                  <button type="submit" className="text-sm text-danger">
                     Delete team
                   </button>
                 </form>
@@ -162,13 +162,13 @@ export default async function Home({
                   />
                 ))}
                 {team.players.length === 0 && (
-                  <li className="text-sm text-gray-400">No players yet.</li>
+                  <li className="text-sm text-muted">No players yet.</li>
                 )}
               </ul>
             </div>
           ))}
           {teams.length === 0 && (
-            <p className="text-sm text-gray-400">No teams yet — add one above.</p>
+            <p className="text-sm text-muted">No teams yet — add one above.</p>
           )}
         </div>
       </section>
@@ -180,11 +180,11 @@ export default async function Home({
             name="q"
             defaultValue={query ?? ""}
             placeholder="Search players by name…"
-            className="w-64 rounded border border-gray-300 px-2 py-1 text-sm"
+            className="w-64 rounded border border-border bg-surface px-2 py-1 text-sm text-foreground"
           />
           <button
             type="submit"
-            className="rounded bg-foreground px-3 py-1 text-sm text-background"
+            className="rounded bg-accent px-3 py-1 text-sm font-medium text-accent-foreground hover:bg-accent-bright"
           >
             Search
           </button>
@@ -204,7 +204,7 @@ export default async function Home({
               />
             ))}
             {freeAgents.length === 0 && (
-              <li className="text-sm text-gray-400">
+              <li className="text-sm text-muted">
                 {syncState ? "No matching free agents." : "Run a sync above to load players."}
               </li>
             )}

@@ -1,13 +1,35 @@
 @import "tailwindcss";
 
+/* Sleeper's own palette, pulled from their shipped CSS (sleepercdn.com _next
+   chunks): dark navy base + a signature cyan accent, plus their alert colors. */
 :root {
-  --background: #ffffff;
-  --foreground: #1c1b18;
+  --background: #05091d;
+  --surface: #0b1028;
+  --surface-hover: #131b38;
+  --foreground: #f5f7fa;
+  --muted: #8996aa;
+  --border: #2d3650;
+  --accent: #03c3c5;
+  --accent-bright: #00fff9;
+  --accent-foreground: #05091d;
+  --danger: #ff6568;
+  --danger-bg: #ff656826;
+  --warning: #ffab0e;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-bright: var(--accent-bright);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-warning: var(--warning);
 }
 
 html,

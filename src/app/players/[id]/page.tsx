@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div>
-      <dt className="text-xs uppercase text-gray-400">{label}</dt>
+      <dt className="text-xs uppercase text-muted">{label}</dt>
       <dd className="text-lg font-medium">{value}</dd>
     </div>
   );
@@ -70,16 +70,16 @@ export default async function PlayerPage({
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-8">
-      <Link href="/stats" className="text-sm text-gray-500">
+      <Link href="/stats" className="text-sm text-muted">
         ← Back to stats
       </Link>
 
       <div>
         <h1 className="text-3xl font-semibold">{player.fullName ?? player.id}</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted">
           {player.position ?? "—"} · {player.nflTeam ?? "Free agent"}
           {player.injuryStatus && (
-            <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">
+            <span className="ml-2 rounded bg-danger-bg px-1.5 py-0.5 text-xs text-danger">
               {player.injuryStatus}
               {player.injuryBodyPart ? ` (${player.injuryBodyPart})` : ""}
             </span>
@@ -88,7 +88,7 @@ export default async function PlayerPage({
       </div>
 
       {season && (
-        <section className="rounded border border-gray-200 p-4">
+        <section className="rounded border border-border bg-surface p-4">
           <h2 className="font-medium">
             Season {season} totals ({gp} {gp === 1 ? "game" : "games"})
           </h2>
@@ -114,12 +114,12 @@ export default async function PlayerPage({
       )}
 
       {projection && (
-        <section className="rounded border border-gray-200 p-4">
+        <section className="rounded border border-border bg-surface p-4">
           <h2 className="font-medium">
             Week {projection.week} projection
             {projection.opponent ? ` vs ${projection.opponent}` : ""}
           </h2>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-muted">
             {projection.ptsPpr?.toFixed(1) ?? "—"} PPR pts projected
             {projection.recYards ? ` · ${projection.recYards.toFixed(0)} rec yd` : ""}
             {projection.rushYards ? ` · ${projection.rushYards.toFixed(0)} rush yd` : ""}
@@ -133,7 +133,7 @@ export default async function PlayerPage({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-left text-gray-500">
+              <tr className="border-b border-border text-left text-muted">
                 <th className="py-2 pr-4">Wk</th>
                 <th className="py-2 pr-4">Opp</th>
                 <th className="py-2 pr-4">Pts</th>
@@ -151,9 +151,9 @@ export default async function PlayerPage({
                     ? (line.offSnaps / line.teamOffSnaps) * 100
                     : null;
                 return (
-                  <tr key={line.id} className="border-b border-gray-100">
+                  <tr key={line.id} className="border-b border-border">
                     <td className="py-2 pr-4">{line.week}</td>
-                    <td className="py-2 pr-4 text-gray-500">{line.opponent ?? "—"}</td>
+                    <td className="py-2 pr-4 text-muted">{line.opponent ?? "—"}</td>
                     <td className="py-2 pr-4 font-medium">{line.ptsPpr?.toFixed(1) ?? "—"}</td>
                     <td className="py-2 pr-4">
                       {lineSnapPct != null ? `${lineSnapPct.toFixed(0)}%` : "—"}
@@ -167,7 +167,7 @@ export default async function PlayerPage({
               })}
               {statLines.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-4 text-gray-400">
+                  <td colSpan={8} className="py-4 text-muted">
                     No games recorded yet this season.
                   </td>
                 </tr>

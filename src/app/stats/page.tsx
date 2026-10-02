@@ -63,7 +63,7 @@ export default async function StatsPage({
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
       <div>
-        <Link href="/" className="text-sm text-gray-500">
+        <Link href="/" className="text-sm text-muted">
           ← Back
         </Link>
         <h1 className="text-3xl font-semibold">Season Stats{season ? ` — ${season}` : ""}</h1>
@@ -74,10 +74,10 @@ export default async function StatsPage({
           <Link
             key={pos}
             href={`/stats?position=${pos}`}
-            className={`rounded px-3 py-1 text-sm ${
+            className={`rounded px-3 py-1 text-sm font-medium ${
               pos === position
-                ? "bg-foreground text-background"
-                : "border border-gray-300 text-gray-700"
+                ? "bg-accent text-accent-foreground"
+                : "border border-border text-muted hover:bg-surface"
             }`}
           >
             {pos}
@@ -86,12 +86,12 @@ export default async function StatsPage({
       </nav>
 
       {!season ? (
-        <p className="text-sm text-gray-400">No synced data yet — run a sync from the home page.</p>
+        <p className="text-sm text-muted">No synced data yet — run a sync from the home page.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-left text-gray-500">
+              <tr className="border-b border-border text-left text-muted">
                 <th className="py-2 pr-4">Player</th>
                 <th className="py-2 pr-4">Team</th>
                 <th className="py-2 pr-4">GP</th>
@@ -132,18 +132,18 @@ export default async function StatsPage({
                     ? (t._sum.offSnaps / t._sum.teamOffSnaps) * 100
                     : null;
                 return (
-                  <tr key={t.playerId} className="border-b border-gray-100">
+                  <tr key={t.playerId} className="border-b border-border">
                     <td className="py-2 pr-4">
                       <Link href={`/players/${t.playerId}`} className="hover:underline">
                         {player?.fullName ?? t.playerId}
                       </Link>
                       {player?.injuryStatus && (
-                        <span className="ml-1 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">
+                        <span className="ml-1 rounded bg-danger-bg px-1.5 py-0.5 text-xs text-danger">
                           {player.injuryStatus}
                         </span>
                       )}
                     </td>
-                    <td className="py-2 pr-4 text-gray-500">{player?.nflTeam ?? "—"}</td>
+                    <td className="py-2 pr-4 text-muted">{player?.nflTeam ?? "—"}</td>
                     <td className="py-2 pr-4">{gp}</td>
                     <td className="py-2 pr-4 font-medium">{ptsPpr.toFixed(1)}</td>
                     <td className="py-2 pr-4">{gp ? (ptsPpr / gp).toFixed(1) : "—"}</td>
@@ -181,7 +181,7 @@ export default async function StatsPage({
               })}
               {totals.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="py-4 text-gray-400">
+                  <td colSpan={12} className="py-4 text-muted">
                     No stats yet for this position.
                   </td>
                 </tr>
