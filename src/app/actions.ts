@@ -39,25 +39,40 @@ export async function assignPlayerToTeam(playerId: string, formData: FormData) {
   revalidatePath("/");
 }
 
+// Assigning into a full slot bumps whichever incumbent(s) are there down to
+// bench to make room, rather than silently refusing the move — so picking
+// e.g. FLEX for a benched player always works, even when FLEX is already
+// full; it just swaps places with whoever's there.
 export async function setRosterSlot(playerId: string, formData: FormData) {
   const requestedSlot = String(formData.get("rosterSlot") ?? "").trim();
 
   const player = await prisma.player.findUnique({
     where: { id: playerId },
-    select: { position: true, fantasyTeamId: true },
+    select: { position: true, fantasyTeamId: true, rosterSlot: true },
   });
-  if (!player?.fantasyTeamId) return;
+  if (!player?.fantasyTeamId || player.rosterSlot === requestedSlot) return;
 
   const allowed = eligibleSlots(player.position).some((s) => s.key === requestedSlot);
   if (!allowed) return;
 
-  const capacity = slotInfo(requestedSlot).capacity;
-  const occupied = await prisma.player.count({
-    where: { fantasyTeamId: player.fantasyTeamId, rosterSlot: requestedSlot, id: { not: playerId } },
+  await prisma.$transaction(async (tx) => {
+    if (requestedSlot !== "BN") {
+      const capacity = slotInfo(requestedSlot).capacity;
+      const occupants = await tx.player.findMany({
+        where: { fantasyTeamId: player.fantasyTeamId, rosterSlot: requestedSlot, id: { not: playerId } },
+        select: { id: true },
+      });
+      const overflow = occupants.length - capacity + 1;
+      if (overflow > 0) {
+        await tx.player.updateMany({
+          where: { id: { in: occupants.slice(0, overflow).map((o) => o.id) } },
+          data: { rosterSlot: "BN" },
+        });
+      }
+    }
+    await tx.player.update({ where: { id: playerId }, data: { rosterSlot: requestedSlot } });
   });
-  if (occupied >= capacity) return;
 
-  await prisma.player.update({ where: { id: playerId }, data: { rosterSlot: requestedSlot } });
   revalidatePath("/");
 }
 

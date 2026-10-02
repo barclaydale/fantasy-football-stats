@@ -8,19 +8,16 @@ export function PositionSlotSelect({
   playerId,
   position,
   rosterSlot,
-  openSlots,
 }: {
   playerId: string;
   position: string | null;
   rosterSlot: string;
-  // Slot keys with room left on this team, besides whichever this player
-  // already occupies (that one's always included so it stays selectable).
-  openSlots: Set<string>;
 }) {
   const action = setRosterSlot.bind(null, playerId);
-  const options = eligibleSlots(position).filter(
-    (s) => s.key === rosterSlot || openSlots.has(s.key),
-  );
+  // Every eligible slot is always offered, full or not — picking a full one
+  // bumps whoever's there to bench (see setRosterSlot) instead of being
+  // silently refused, so this never needs to hide "full" options.
+  const options = eligibleSlots(position);
 
   return (
     <form action={action}>

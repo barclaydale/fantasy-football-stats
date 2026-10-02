@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { ROSTER_SLOTS, SLOT_ORDER } from "@/lib/roster-slots";
+import { SLOT_ORDER } from "@/lib/roster-slots";
 import { createTeam, deleteTeam, runManualSync } from "./actions";
 import { EditTeamControl } from "./edit-team-control";
 import { EditTeamInfo } from "./edit-team-info";
@@ -23,12 +23,10 @@ function PlayerRow({
   player,
   pts,
   teams,
-  openSlots,
 }: {
   player: RosterPlayer;
   pts: number | null | undefined;
   teams: { id: string; name: string }[];
-  openSlots: Set<string>;
 }) {
   const rostered = player.fantasyTeamId != null;
   const benched = rostered && player.rosterSlot === "BN";
@@ -61,7 +59,6 @@ function PlayerRow({
             playerId={player.id}
             position={player.position}
             rosterSlot={player.rosterSlot}
-            openSlots={openSlots}
           />
         )}
         {rostered ? (
@@ -108,18 +105,6 @@ export default async function Home({
         (a.fullName ?? "").localeCompare(b.fullName ?? ""),
     ),
   }));
-
-  // Which slots still have room on each team, for the slot dropdowns' options.
-  const openSlotsByTeam = new Map<string, Set<string>>();
-  for (const team of teams) {
-    const counts = new Map<string, number>();
-    for (const p of team.players) counts.set(p.rosterSlot, (counts.get(p.rosterSlot) ?? 0) + 1);
-    const open = new Set<string>();
-    for (const slot of ROSTER_SLOTS) {
-      if ((counts.get(slot.key) ?? 0) < slot.capacity) open.add(slot.key);
-    }
-    openSlotsByTeam.set(team.id, open);
-  }
 
   const allShownIds = [
     ...teams.flatMap((t) => t.players.map((p) => p.id)),
@@ -200,7 +185,6 @@ export default async function Home({
                       player={player}
                       pts={ptsByPlayer.get(player.id)}
                       teams={teams}
-                      openSlots={openSlotsByTeam.get(team.id) ?? new Set()}
                     />
                   ))}
                   {team.players.length === 0 && (
@@ -228,7 +212,6 @@ export default async function Home({
                 player={player}
                 pts={ptsByPlayer.get(player.id)}
                 teams={teams}
-                openSlots={new Set()}
               />
             ))}
             {freeAgents.length === 0 && (
