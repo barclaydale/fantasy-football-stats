@@ -11,15 +11,32 @@ export type TeamRecord = {
   pointsAgainst: number;
 };
 
+export type StandingsHistory = {
+  final: Map<string, TeamRecord>;
+  /** teamId -> rank after each week, index 0 = week 1's rank, through `throughWeek`. */
+  ranksByWeek: Map<string, number[]>;
+};
+
+// Most wins first, points-for as the tiebreak — same ordering used for the
+// main standings table and every weekly snapshot below it.
+function byStanding(a: TeamRecord, b: TeamRecord): number {
+  if (b.wins !== a.wins) return b.wins - a.wins;
+  return b.pointsFor - a.pointsFor;
+}
+
 // Standings only ever use ACTUAL points (never projections) — a week that
 // hasn't been played yet just doesn't count, rather than being guessed at.
 // Note this applies every team's *current* roster slots retroactively to
 // past weeks, since the app doesn't keep a history of who started when.
-export async function computeStandings(
+//
+// Computes the cumulative record through each week in one pass (rather than
+// recomputing from scratch per week), snapshotting the standing order after
+// each week so the "ranking over time" table doesn't need N separate passes.
+export async function computeStandingsHistory(
   season: number,
   seasonType: string,
   throughWeek: number,
-): Promise<Map<string, TeamRecord>> {
+): Promise<StandingsHistory> {
   const teams = await prisma.team.findMany({ select: { id: true, name: true } });
   const teamByName = new Map(teams.map((t) => [t.name.toLowerCase(), t.id]));
 
@@ -55,6 +72,7 @@ export async function computeStandings(
   const records = new Map<string, TeamRecord>(
     teams.map((t) => [t.id, { teamId: t.id, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 }]),
   );
+  const ranksByWeek = new Map<string, number[]>(teams.map((t) => [t.id, []]));
 
   for (let week = 1; week <= throughWeek; week++) {
     for (const [nameA, nameB] of matchupsForWeek(week)) {
@@ -83,7 +101,18 @@ export async function computeStandings(
         recordB.ties += 1;
       }
     }
+
+    const standingOrder = [...records.values()].sort(byStanding);
+    standingOrder.forEach((record, i) => ranksByWeek.get(record.teamId)!.push(i + 1));
   }
 
-  return records;
+  return { final: records, ranksByWeek };
+}
+
+export async function computeStandings(
+  season: number,
+  seasonType: string,
+  throughWeek: number,
+): Promise<Map<string, TeamRecord>> {
+  return (await computeStandingsHistory(season, seasonType, throughWeek)).final;
 }
