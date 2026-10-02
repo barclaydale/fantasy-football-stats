@@ -1,6 +1,7 @@
 "use client";
 
 import { assignPlayerToTeam } from "./actions";
+import { Select } from "./ui";
 
 export function TeamSelect({
   playerId,
@@ -15,11 +16,11 @@ export function TeamSelect({
 
   return (
     <form action={action}>
-      <select
+      <Select
         name="fantasyTeamId"
         defaultValue={fantasyTeamId ?? ""}
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
-        className="rounded border border-border bg-surface px-2 py-1 text-sm text-foreground"
+        className="py-1 text-xs"
       >
         <option value="">Free agent</option>
         {teams.map((team) => (
@@ -27,7 +28,7 @@ export function TeamSelect({
             {team.name}
           </option>
         ))}
-      </select>
+      </Select>
     </form>
   );
 }

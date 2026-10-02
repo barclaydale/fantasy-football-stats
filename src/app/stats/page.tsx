@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { BackLink, EmptyState, InjuryBadge, TableShell, td, th, tr } from "../ui";
 
 const POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"] as const;
 type Position = (typeof POSITIONS)[number];
@@ -61,12 +62,10 @@ export default async function StatsPage({
   const showSnaps = position !== "DEF" && position !== "K";
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
-      <div>
-        <Link href="/" className="text-sm text-muted">
-          ← Back
-        </Link>
-        <h1 className="text-3xl font-semibold">Season Stats{season ? ` — ${season}` : ""}</h1>
+    <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6 sm:p-8">
+      <div className="flex flex-col gap-1">
+        <BackLink href="/">Teams</BackLink>
+        <h1 className="text-xl font-semibold">Season Stats{season ? ` — ${season}` : ""}</h1>
       </div>
 
       <nav className="flex flex-wrap gap-2">
@@ -74,10 +73,10 @@ export default async function StatsPage({
           <Link
             key={pos}
             href={`/stats?position=${pos}`}
-            className={`rounded px-3 py-1 text-sm font-medium ${
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               pos === position
                 ? "bg-accent text-accent-foreground"
-                : "border border-border text-muted hover:bg-surface"
+                : "border border-border text-muted hover:border-accent hover:text-foreground"
             }`}
           >
             {pos}
@@ -86,109 +85,101 @@ export default async function StatsPage({
       </nav>
 
       {!season ? (
-        <p className="text-sm text-muted">No synced data yet — run a sync from the home page.</p>
+        <EmptyState>No synced data yet — run a sync from the home page.</EmptyState>
+      ) : totals.length === 0 ? (
+        <EmptyState>No stats yet for this position.</EmptyState>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-muted">
-                <th className="py-2 pr-4">Player</th>
-                <th className="py-2 pr-4">Team</th>
-                <th className="py-2 pr-4">GP</th>
-                <th className="py-2 pr-4">PPR pts</th>
-                <th className="py-2 pr-4">Pts/G</th>
-                {showReceiving && (
-                  <>
-                    <th className="py-2 pr-4">Rec</th>
-                    <th className="py-2 pr-4">Rec Yd</th>
-                    <th className="py-2 pr-4">Rec TD</th>
-                  </>
-                )}
-                {showRushing && (
-                  <>
-                    <th className="py-2 pr-4">Rush Att</th>
-                    <th className="py-2 pr-4">Rush Yd</th>
-                    <th className="py-2 pr-4">Rush TD</th>
-                  </>
-                )}
-                {showPassing && (
-                  <>
-                    <th className="py-2 pr-4">Cmp/Att</th>
-                    <th className="py-2 pr-4">Pass Yd</th>
-                    <th className="py-2 pr-4">Pass TD</th>
-                    <th className="py-2 pr-4">Int</th>
-                  </>
-                )}
-                {showSnaps && <th className="py-2 pr-4">Snap %</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {totals.map((t) => {
-                const player = playerById.get(t.playerId);
-                const gp = t._count._all;
-                const ptsPpr = t._sum.ptsPpr ?? 0;
-                const snapPct =
-                  t._sum.offSnaps != null && t._sum.teamOffSnaps
-                    ? (t._sum.offSnaps / t._sum.teamOffSnaps) * 100
-                    : null;
-                return (
-                  <tr key={t.playerId} className="border-b border-border">
-                    <td className="py-2 pr-4">
-                      <Link href={`/players/${t.playerId}`} className="hover:underline">
+        <TableShell>
+          <thead>
+            <tr className="border-b border-border">
+              <th className={th}>Player</th>
+              <th className={th}>Team</th>
+              <th className={th}>GP</th>
+              <th className={th}>PPR pts</th>
+              <th className={th}>Pts/G</th>
+              {showReceiving && (
+                <>
+                  <th className={th}>Rec</th>
+                  <th className={th}>Rec Yd</th>
+                  <th className={th}>Rec TD</th>
+                </>
+              )}
+              {showRushing && (
+                <>
+                  <th className={th}>Rush Att</th>
+                  <th className={th}>Rush Yd</th>
+                  <th className={th}>Rush TD</th>
+                </>
+              )}
+              {showPassing && (
+                <>
+                  <th className={th}>Cmp/Att</th>
+                  <th className={th}>Pass Yd</th>
+                  <th className={th}>Pass TD</th>
+                  <th className={th}>Int</th>
+                </>
+              )}
+              {showSnaps && <th className={th}>Snap %</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {totals.map((t) => {
+              const player = playerById.get(t.playerId);
+              const gp = t._count._all;
+              const ptsPpr = t._sum.ptsPpr ?? 0;
+              const snapPct =
+                t._sum.offSnaps != null && t._sum.teamOffSnaps
+                  ? (t._sum.offSnaps / t._sum.teamOffSnaps) * 100
+                  : null;
+              return (
+                <tr key={t.playerId} className={tr}>
+                  <td className={td}>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/players/${t.playerId}`}
+                        className="font-medium hover:text-accent"
+                      >
                         {player?.fullName ?? t.playerId}
                       </Link>
-                      {player?.injuryStatus && (
-                        <span className="ml-1 rounded bg-danger-bg px-1.5 py-0.5 text-xs text-danger">
-                          {player.injuryStatus}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2 pr-4 text-muted">{player?.nflTeam ?? "—"}</td>
-                    <td className="py-2 pr-4">{gp}</td>
-                    <td className="py-2 pr-4 font-medium">{ptsPpr.toFixed(1)}</td>
-                    <td className="py-2 pr-4">{gp ? (ptsPpr / gp).toFixed(1) : "—"}</td>
-                    {showReceiving && (
-                      <>
-                        <td className="py-2 pr-4">{t._sum.rec ?? 0}</td>
-                        <td className="py-2 pr-4">{t._sum.recYards ?? 0}</td>
-                        <td className="py-2 pr-4">{t._sum.recTds ?? 0}</td>
-                      </>
-                    )}
-                    {showRushing && (
-                      <>
-                        <td className="py-2 pr-4">{t._sum.rushAtt ?? 0}</td>
-                        <td className="py-2 pr-4">{t._sum.rushYards ?? 0}</td>
-                        <td className="py-2 pr-4">{t._sum.rushTds ?? 0}</td>
-                      </>
-                    )}
-                    {showPassing && (
-                      <>
-                        <td className="py-2 pr-4">
-                          {t._sum.passCmp ?? 0}/{t._sum.passAtt ?? 0}
-                        </td>
-                        <td className="py-2 pr-4">{t._sum.passYards ?? 0}</td>
-                        <td className="py-2 pr-4">{t._sum.passTds ?? 0}</td>
-                        <td className="py-2 pr-4">{t._sum.passInt ?? 0}</td>
-                      </>
-                    )}
-                    {showSnaps && (
-                      <td className="py-2 pr-4">
-                        {snapPct != null ? `${snapPct.toFixed(0)}%` : "—"}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-              {totals.length === 0 && (
-                <tr>
-                  <td colSpan={12} className="py-4 text-muted">
-                    No stats yet for this position.
+                      {player?.injuryStatus && <InjuryBadge status={player.injuryStatus} />}
+                    </div>
                   </td>
+                  <td className={`${td} text-muted`}>{player?.nflTeam ?? "—"}</td>
+                  <td className={td}>{gp}</td>
+                  <td className={`${td} font-semibold text-accent`}>{ptsPpr.toFixed(1)}</td>
+                  <td className={td}>{gp ? (ptsPpr / gp).toFixed(1) : "—"}</td>
+                  {showReceiving && (
+                    <>
+                      <td className={td}>{t._sum.rec ?? 0}</td>
+                      <td className={td}>{t._sum.recYards ?? 0}</td>
+                      <td className={td}>{t._sum.recTds ?? 0}</td>
+                    </>
+                  )}
+                  {showRushing && (
+                    <>
+                      <td className={td}>{t._sum.rushAtt ?? 0}</td>
+                      <td className={td}>{t._sum.rushYards ?? 0}</td>
+                      <td className={td}>{t._sum.rushTds ?? 0}</td>
+                    </>
+                  )}
+                  {showPassing && (
+                    <>
+                      <td className={td}>
+                        {t._sum.passCmp ?? 0}/{t._sum.passAtt ?? 0}
+                      </td>
+                      <td className={td}>{t._sum.passYards ?? 0}</td>
+                      <td className={td}>{t._sum.passTds ?? 0}</td>
+                      <td className={td}>{t._sum.passInt ?? 0}</td>
+                    </>
+                  )}
+                  {showSnaps && (
+                    <td className={td}>{snapPct != null ? `${snapPct.toFixed(0)}%` : "—"}</td>
+                  )}
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+          </tbody>
+        </TableShell>
       )}
     </main>
   );

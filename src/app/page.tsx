@@ -2,8 +2,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { createTeam, deleteTeam, runManualSync } from "./actions";
 import { TeamSelect } from "./team-select";
+import { Button, Card, EmptyState, GhostButton, InjuryBadge, TextInput } from "./ui";
 
-function PlayerLine({
+function PlayerRow({
   player,
   pts,
   teams,
@@ -20,22 +21,23 @@ function PlayerLine({
   teams: { id: string; name: string }[];
 }) {
   return (
-    <li className="flex items-center justify-between gap-2 text-sm">
-      <span>
-        <Link href={`/players/${player.id}`} className="hover:underline">
+    <li className="flex flex-wrap items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-surface-hover">
+      <div className="flex min-w-0 items-center gap-2 text-sm">
+        <Link
+          href={`/players/${player.id}`}
+          className="font-medium text-foreground hover:text-accent"
+        >
           {player.fullName ?? "Unknown player"}
-        </Link>{" "}
-        <span className="text-muted">
-          ({player.position ?? "—"}
-          {player.nflTeam ? ` · ${player.nflTeam}` : ""})
+        </Link>
+        <span className="shrink-0 text-muted">
+          {player.position ?? "—"}
+          {player.nflTeam ? ` · ${player.nflTeam}` : ""}
         </span>
-        {player.injuryStatus && (
-          <span className="ml-1 rounded bg-danger-bg px-1.5 py-0.5 text-xs text-danger">
-            {player.injuryStatus}
-          </span>
+        {player.injuryStatus && <InjuryBadge status={player.injuryStatus} />}
+        {pts != null && (
+          <span className="shrink-0 font-medium text-accent">{pts.toFixed(1)} pts</span>
         )}
-        {pts != null && <span className="ml-2 text-muted">{pts.toFixed(1)} pts</span>}
-      </span>
+      </div>
       <TeamSelect playerId={player.id} fantasyTeamId={player.fantasyTeamId} teams={teams} />
     </li>
   );
@@ -66,7 +68,10 @@ export default async function Home({
     }),
   ]);
 
-  const allShownIds = [...teams.flatMap((t) => t.players.map((p) => p.id)), ...freeAgents.map((p) => p.id)];
+  const allShownIds = [
+    ...teams.flatMap((t) => t.players.map((p) => p.id)),
+    ...freeAgents.map((p) => p.id),
+  ];
 
   const statLines =
     syncState?.season != null && syncState.week != null && allShownIds.length > 0
@@ -83,120 +88,96 @@ export default async function Home({
   const ptsByPlayer = new Map(statLines.map((s) => [s.playerId, s.ptsPpr]));
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-10 p-8">
-      <div>
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-semibold">Welcome to Fantasy Football Stats</h1>
-          <Link href="/stats" className="text-sm text-muted hover:underline">
-            Season stats →
-          </Link>
-        </div>
-        <p className="mt-2 text-sm text-muted">
-          {syncState?.lastSyncedAt
-            ? `Synced from Sleeper: season ${syncState.season}, week ${syncState.week} (${syncState.seasonType}), last run ${syncState.lastSyncedAt.toLocaleString()}.`
-            : "Not synced yet — run a sync below to pull players and stats from Sleeper."}
+    <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 p-6 sm:p-8">
+      <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted">
+          {syncState?.lastSyncedAt ? (
+            <>
+              Season {syncState.season}, week {syncState.week} ({syncState.seasonType}) · last
+              synced {syncState.lastSyncedAt.toLocaleString()}
+            </>
+          ) : (
+            "Not synced yet — run a sync to pull players and stats from Sleeper."
+          )}
           {syncState?.lastError && (
             <span className="ml-2 text-danger">Last sync error: {syncState.lastError}</span>
           )}
         </p>
-        <form action={runManualSync} className="mt-3 flex items-center gap-2">
-          <label className="flex items-center gap-1 text-sm text-muted">
-            <input type="checkbox" name="backfillWeeks" />
-            Backfill the whole season (first run only — slower)
+        <form action={runManualSync} className="flex shrink-0 items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            <input type="checkbox" name="backfillWeeks" className="accent-accent" />
+            Backfill season
           </label>
-          <button
-            type="submit"
-            className="rounded bg-accent px-3 py-1 text-sm font-medium text-accent-foreground hover:bg-accent-bright"
-          >
-            Sync now
-          </button>
+          <Button type="submit">Sync now</Button>
         </form>
-      </div>
+      </Card>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Teams</h2>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold">Teams</h1>
+        </div>
         <form action={createTeam} className="flex flex-wrap gap-2">
-          <input
-            name="name"
-            placeholder="Team name"
-            required
-            className="rounded border border-border bg-surface px-2 py-1 text-sm text-foreground"
-          />
-          <input
-            name="ownerName"
-            placeholder="Owner (optional)"
-            className="rounded border border-border bg-surface px-2 py-1 text-sm text-foreground"
-          />
-          <button
-            type="submit"
-            className="rounded bg-accent px-3 py-1 text-sm font-medium text-accent-foreground hover:bg-accent-bright"
-          >
-            Add team
-          </button>
+          <TextInput name="name" placeholder="Team name" required />
+          <TextInput name="ownerName" placeholder="Owner (optional)" />
+          <Button type="submit">Add team</Button>
         </form>
 
-        <div className="flex flex-col gap-4">
-          {teams.map((team) => (
-            <div key={team.id} className="rounded border border-border bg-surface p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">{team.name}</h3>
-                  {team.ownerName && (
-                    <p className="text-sm text-muted">{team.ownerName}</p>
-                  )}
+        {teams.length === 0 ? (
+          <EmptyState>No teams yet — add one above.</EmptyState>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {teams.map((team) => (
+              <Card key={team.id} className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h2 className="font-semibold">{team.name}</h2>
+                    {team.ownerName && <p className="text-sm text-muted">{team.ownerName}</p>}
+                  </div>
+                  <form action={deleteTeam.bind(null, team.id)}>
+                    <GhostButton type="submit" className="px-2 py-1 text-xs">
+                      Delete
+                    </GhostButton>
+                  </form>
                 </div>
-                <form action={deleteTeam.bind(null, team.id)}>
-                  <button type="submit" className="text-sm text-danger">
-                    Delete team
-                  </button>
-                </form>
-              </div>
 
-              <ul className="mt-3 flex flex-col gap-2">
-                {team.players.map((player) => (
-                  <PlayerLine
-                    key={player.id}
-                    player={player}
-                    pts={ptsByPlayer.get(player.id)}
-                    teams={teams}
-                  />
-                ))}
-                {team.players.length === 0 && (
-                  <li className="text-sm text-muted">No players yet.</li>
-                )}
-              </ul>
-            </div>
-          ))}
-          {teams.length === 0 && (
-            <p className="text-sm text-muted">No teams yet — add one above.</p>
-          )}
-        </div>
+                <ul className="flex flex-col divide-y divide-border">
+                  {team.players.map((player) => (
+                    <PlayerRow
+                      key={player.id}
+                      player={player}
+                      pts={ptsByPlayer.get(player.id)}
+                      teams={teams}
+                    />
+                  ))}
+                  {team.players.length === 0 && (
+                    <li className="py-2 text-sm text-muted">No players yet.</li>
+                  )}
+                </ul>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold">Players</h2>
         <form className="flex gap-2">
-          <input
+          <TextInput
             name="q"
             defaultValue={query ?? ""}
             placeholder="Search players by name…"
-            className="w-64 rounded border border-border bg-surface px-2 py-1 text-sm text-foreground"
+            className="w-64"
           />
-          <button
-            type="submit"
-            className="rounded bg-accent px-3 py-1 text-sm font-medium text-accent-foreground hover:bg-accent-bright"
-          >
-            Search
-          </button>
+          <Button type="submit">Search</Button>
         </form>
 
-        <div>
-          <h3 className="mb-2 font-medium">
+        <Card>
+          <h3 className="mb-2 text-sm font-medium text-muted">
             {query ? `Free agents matching "${query}"` : "Free agents (top by relevance)"}
           </h3>
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col divide-y divide-border">
             {freeAgents.map((player) => (
-              <PlayerLine
+              <PlayerRow
                 key={player.id}
                 player={player}
                 pts={ptsByPlayer.get(player.id)}
@@ -204,12 +185,12 @@ export default async function Home({
               />
             ))}
             {freeAgents.length === 0 && (
-              <li className="text-sm text-muted">
+              <li className="py-2 text-sm text-muted">
                 {syncState ? "No matching free agents." : "Run a sync above to load players."}
               </li>
             )}
           </ul>
-        </div>
+        </Card>
       </section>
     </main>
   );
