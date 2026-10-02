@@ -28,11 +28,39 @@ export type TeamWeekScore = {
   players: PlayerLine[];
 };
 
-// Rough per-player weekly fantasy-point standard deviation. There's no real
-// variance model behind this — it's a reasonable constant (~7 pts is in the
-// ballpark for a typical skill-position starter) used only to make win
-// probability shrink toward 100/0 as fewer starters are left to play.
-const PER_PLAYER_STD_DEV = 7;
+// Week-to-week coefficient of variation (stdev / mean) per position, i.e. how
+// volatile a player's score is relative to their own projection. QB/RB/WR/TE
+// figures are published week-to-week numbers (not season-average spread,
+// which is a different and much smaller statistic): PlayerProfiler's "Player
+// Variance Manifesto" and Underdog Network's "Weekly Variance By Position"
+// both put QB lowest (~0.36), RB and WR in the middle (~0.54, ~0.58), and TE
+// highest (~0.63) — TE being the most volatile, not RB/DEF, is the one place
+// this corrects a wrong assumption the old flat-constant model baked in.
+// K/DEF aren't well documented publicly; these two are reasoned estimates
+// (DEF swings on turnovers/TDs and is widely considered the spikiest
+// position; K is moderate — long-FG variance but a smaller scoring range).
+const STD_DEV_COEFFICIENT: Record<string, number> = {
+  QB: 0.36,
+  RB: 0.54,
+  WR: 0.58,
+  TE: 0.63,
+  K: 0.45,
+  DEF: 0.65,
+};
+const DEFAULT_STD_DEV_COEFFICIENT = 0.55;
+// Floor so a near-zero projection doesn't round down to near-zero variance —
+// even a deep bench player has some chance of a surprise stat correction.
+const MIN_PLAYER_STD_DEV = 2;
+
+// A player who hasn't played yet contributes this much uncertainty to their
+// team's total. Scaling by the player's OWN projection (rather than a flat
+// number for everyone) is the main fix here: a flat constant said a
+// 3-projected kicker and a 28-projected WR1 carry the same uncertainty,
+// which is backwards — the WR1 has far more variance in absolute terms.
+function playerStdDev(position: string | null, projectedPoints: number | null): number {
+  const coefficient = STD_DEV_COEFFICIENT[position ?? ""] ?? DEFAULT_STD_DEV_COEFFICIENT;
+  return Math.max(MIN_PLAYER_STD_DEV, coefficient * Math.max(projectedPoints ?? 0, 0));
+}
 
 const EMPTY: TeamWeekScore = {
   total: 0,
@@ -76,7 +104,7 @@ export async function computeTeamWeekScore(
   let actualOnly = 0;
   let projectedTotal = 0;
   let played = 0;
-  let remaining = 0;
+  let varianceSum = 0;
   const players: PlayerLine[] = starters
     .map((p) => {
       const actual = actualByPlayer.get(p.id);
@@ -90,7 +118,7 @@ export async function computeTeamWeekScore(
         actualOnly += actualPoints ?? 0;
         played += 1;
       } else {
-        remaining += 1;
+        varianceSum += playerStdDev(p.position, projectedPoints) ** 2;
       }
 
       return {
@@ -116,7 +144,7 @@ export async function computeTeamWeekScore(
     projectedTotal,
     startersTotal: ids.length,
     startersPlayed: played,
-    stdDev: PER_PLAYER_STD_DEV * Math.sqrt(remaining),
+    stdDev: Math.sqrt(varianceSum),
     players,
   };
 }
