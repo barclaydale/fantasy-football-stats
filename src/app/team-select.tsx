@@ -4,11 +4,11 @@ import { assignPlayerToTeam } from "./actions";
 
 export function TeamSelect({
   playerId,
-  teamId,
+  fantasyTeamId,
   teams,
 }: {
   playerId: string;
-  teamId: string | null;
+  fantasyTeamId: string | null;
   teams: { id: string; name: string }[];
 }) {
   const action = assignPlayerToTeam.bind(null, playerId);
@@ -16,8 +16,8 @@ export function TeamSelect({
   return (
     <form action={action}>
       <select
-        name="teamId"
-        defaultValue={teamId ?? ""}
+        name="fantasyTeamId"
+        defaultValue={fantasyTeamId ?? ""}
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
         className="rounded border border-gray-300 bg-background px-2 py-1 text-sm"
       >

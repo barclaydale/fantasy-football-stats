@@ -25,20 +25,76 @@ model Team {
   players Player[]
 }
 
-// One NFL player. `teamId` is the fantasy team that currently rosters them;
-// null means a free agent. A player can only sit on one fantasy team at a
-// time, so this direct foreign key is enough to answer "who's on whose team"
-// without a separate join table.
+// One real NFL player, synced daily from Sleeper (id = Sleeper's own player_id,
+// so re-syncing is a plain upsert). `fantasyTeamId` is the fantasy team that
+// currently rosters them; null means a free agent. Team defenses are players
+// too here (id = team abbreviation, e.g. "HOU"), matching how Sleeper models them.
 model Player {
-  id        String   @id @default(cuid())
-  name      String
-  position  String // QB | RB | WR | TE | K | DST
-  nflTeam   String? // pro team abbreviation, e.g. "KC"
-  teamId    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String  @id
+  firstName          String?
+  lastName           String?
+  fullName           String?
+  position           String? // QB | RB | WR | TE | K | DEF | ...
+  fantasyPositions   String[]
+  nflTeam            String? // pro team abbreviation, e.g. "KC"; null if a free agent/retired
+  status             String? // Active | Inactive | Injured Reserve | Practice Squad | ...
+  injuryStatus       String? // Questionable | Doubtful | Out | IR | ...
+  injuryBodyPart     String?
+  injuryNotes        String?
+  age                Int?
+  yearsExp           Int?
+  depthChartPosition String?
+  depthChartOrder    Int?
+  // Sleeper's own fame/relevance ranking (lower = more relevant); used to sort
+  // the free-agent list so stars surface before deep-bench scrubs.
+  searchRank         Int?
+  active             Boolean  @default(true)
+  syncedAt           DateTime @default(now())
 
-  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  fantasyTeamId String?
+  fantasyTeam   Team?   @relation(fields: [fantasyTeamId], references: [id], onDelete: SetNull)
 
-  @@index([teamId])
+  statLines PlayerStatLine[]
+
+  @@index([fantasyTeamId])
+  @@index([position])
+  @@index([searchRank])
+}
+
+// One player's full stat line for one week, straight from Sleeper's stats API.
+// `stats` keeps the entire raw payload (it varies a lot by position — passing,
+// rushing, receiving, IDP, kicking, punting, team-defense-allowed, snap counts,
+// red zone, etc., over 200 possible keys) so new stats/views can be built later
+// without re-fetching history. The three point totals are pulled out as columns
+// since they're the ones every view needs to sort/filter on.
+model PlayerStatLine {
+  id         String   @id @default(cuid())
+  playerId   String
+  season     Int
+  week       Int
+  seasonType String   @default("regular") // regular | post | pre
+  nflTeam    String?
+  opponent   String?
+  stats      Json
+  ptsStd     Float?
+  ptsPpr     Float?
+  ptsHalfPpr Float?
+  updatedAt  DateTime @updatedAt
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, season, week, seasonType])
+  @@index([season, week])
+}
+
+// Singleton row (id always 1) tracking the last successful Sleeper sync, so
+// the UI knows which season/week's stats it's showing without calling Sleeper
+// on every page load.
+model SyncState {
+  id           Int       @id @default(1)
+  season       Int?
+  week         Int?
+  seasonType   String?
+  lastSyncedAt DateTime?
+  lastError    String?
 }

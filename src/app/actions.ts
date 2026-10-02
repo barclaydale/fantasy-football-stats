@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { syncSleeperData } from "@/lib/sync";
 
 export async function createTeam(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -14,39 +15,25 @@ export async function createTeam(formData: FormData) {
   revalidatePath("/");
 }
 
-export async function createPlayer(formData: FormData) {
-  const name = String(formData.get("name") ?? "").trim();
-  const position = String(formData.get("position") ?? "").trim();
-  const nflTeam = String(formData.get("nflTeam") ?? "").trim();
-  const teamId = String(formData.get("teamId") ?? "").trim();
-  if (!name || !position) return;
-
-  await prisma.player.create({
-    data: {
-      name,
-      position,
-      nflTeam: nflTeam || null,
-      teamId: teamId || null,
-    },
-  });
+export async function deleteTeam(teamId: string) {
+  await prisma.team.delete({ where: { id: teamId } });
   revalidatePath("/");
 }
 
 export async function assignPlayerToTeam(playerId: string, formData: FormData) {
-  const teamId = String(formData.get("teamId") ?? "").trim();
+  const fantasyTeamId = String(formData.get("fantasyTeamId") ?? "").trim();
   await prisma.player.update({
     where: { id: playerId },
-    data: { teamId: teamId || null },
+    data: { fantasyTeamId: fantasyTeamId || null },
   });
   revalidatePath("/");
 }
 
-export async function deletePlayer(playerId: string) {
-  await prisma.player.delete({ where: { id: playerId } });
-  revalidatePath("/");
-}
-
-export async function deleteTeam(teamId: string) {
-  await prisma.team.delete({ where: { id: teamId } });
+// Manual trigger for the same sync the daily cron runs (src/app/api/sync/route.ts).
+// Useful right after attaching the database, and the first run should pass
+// backfillWeeks so the whole season so far is pulled in, not just this week.
+export async function runManualSync(formData: FormData) {
+  const backfillWeeks = formData.get("backfillWeeks") === "on";
+  await syncSleeperData({ backfillWeeks });
   revalidatePath("/");
 }
