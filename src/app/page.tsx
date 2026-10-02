@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { createTeam, deleteTeam, runManualSync } from "./actions";
+import { EditTeamControl } from "./edit-team-control";
 import { RosterStatusToggle } from "./roster-status-toggle";
 import { TeamSelect } from "./team-select";
 import { Button, Card, EmptyState, GhostButton, InjuryBadge, TextInput } from "./ui";
@@ -49,7 +50,11 @@ function PlayerRow({
       </div>
       <div className="flex shrink-0 items-center gap-3">
         {rostered && <RosterStatusToggle playerId={player.id} isActive={isActive} />}
-        <TeamSelect playerId={player.id} fantasyTeamId={player.fantasyTeamId} teams={teams} />
+        {rostered ? (
+          <EditTeamControl playerId={player.id} fantasyTeamId={player.fantasyTeamId} teams={teams} />
+        ) : (
+          <TeamSelect playerId={player.id} fantasyTeamId={player.fantasyTeamId} teams={teams} />
+        )}
       </div>
     </li>
   );
