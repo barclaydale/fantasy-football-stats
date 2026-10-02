@@ -1,0 +1,44 @@
+// Prisma schema for the fantasy football stats dashboard.
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Var names match what Vercel's Postgres (Neon) storage integration sets when you
+// click "Connect to Project" on the database: DATABASE_URL (pooled, via pgbouncer)
+// and DATABASE_URL_UNPOOLED (direct connection, needed for migrations).
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// One fantasy team in the league.
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  ownerName String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  players Player[]
+}
+
+// One NFL player. `teamId` is the fantasy team that currently rosters them;
+// null means a free agent. A player can only sit on one fantasy team at a
+// time, so this direct foreign key is enough to answer "who's on whose team"
+// without a separate join table.
+model Player {
+  id        String   @id @default(cuid())
+  name      String
+  position  String // QB | RB | WR | TE | K | DST
+  nflTeam   String? // pro team abbreviation, e.g. "KC"
+  teamId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([teamId])
+}
