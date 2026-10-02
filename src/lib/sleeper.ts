@@ -31,6 +31,8 @@ export type SleeperPlayer = {
   active?: boolean | null;
 };
 
+// Shared shape for both /stats (actual, "category": "stat") and /projections
+// ("category": "proj") responses — same stat keys either way.
 export type SleeperStatLine = {
   player_id: string;
   season: string;
@@ -40,6 +42,8 @@ export type SleeperStatLine = {
   opponent?: string | null;
   stats: Record<string, number>;
 };
+
+const FANTASY_POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"];
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { cache: "no-store" });
@@ -66,5 +70,18 @@ export function getWeekStats(
 ): Promise<SleeperStatLine[]> {
   return fetchJson(
     `https://api.sleeper.com/stats/nfl/${season}/${week}?season_type=${seasonType}`,
+  );
+}
+
+// Unlike /stats, this one requires explicit position[] filters.
+export function getWeekProjections(
+  season: number,
+  week: number,
+  seasonType = "regular",
+): Promise<SleeperStatLine[]> {
+  const params = new URLSearchParams({ season_type: seasonType });
+  for (const position of FANTASY_POSITIONS) params.append("position[]", position);
+  return fetchJson(
+    `https://api.sleeper.com/projections/nfl/${season}/${week}?${params.toString()}`,
   );
 }

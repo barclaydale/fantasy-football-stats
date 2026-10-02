@@ -54,7 +54,8 @@ model Player {
   fantasyTeamId String?
   fantasyTeam   Team?   @relation(fields: [fantasyTeamId], references: [id], onDelete: SetNull)
 
-  statLines PlayerStatLine[]
+  statLines   PlayerStatLine[]
+  projections PlayerProjection[]
 
   @@index([fantasyTeamId])
   @@index([position])
@@ -65,8 +66,9 @@ model Player {
 // `stats` keeps the entire raw payload (it varies a lot by position — passing,
 // rushing, receiving, IDP, kicking, punting, team-defense-allowed, snap counts,
 // red zone, etc., over 200 possible keys) so new stats/views can be built later
-// without re-fetching history. The three point totals are pulled out as columns
-// since they're the ones every view needs to sort/filter on.
+// without re-fetching history. The box-score basics below are pulled out as
+// columns (snake_case Sleeper keys in parens) since season-stats pages need to
+// SUM/AVG them directly rather than reach into JSON every time.
 model PlayerStatLine {
   id         String   @id @default(cuid())
   playerId   String
@@ -79,7 +81,60 @@ model PlayerStatLine {
   ptsStd     Float?
   ptsPpr     Float?
   ptsHalfPpr Float?
-  updatedAt  DateTime @updatedAt
+
+  recTargets Float? // rec_tgt
+  rec        Float? // rec
+  recYards   Float? // rec_yd
+  recTds     Float? // rec_td
+  rushAtt    Float? // rush_att
+  rushYards  Float? // rush_yd
+  rushTds    Float? // rush_td
+  passAtt    Float? // pass_att
+  passCmp    Float? // pass_cmp
+  passYards  Float? // pass_yd
+  passTds    Float? // pass_td
+  passInt    Float? // pass_int
+
+  // Snap % = offSnaps / teamOffSnaps. Sleeper doesn't report a percentage directly.
+  offSnaps     Float? // off_snp
+  teamOffSnaps Float? // tm_off_snp
+
+  updatedAt DateTime @updatedAt
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, season, week, seasonType])
+  @@index([season, week])
+}
+
+// Same shape as PlayerStatLine but for Sleeper's projections (not-yet-played
+// games), from the same API family — same stat keys, "proj" instead of "stat".
+model PlayerProjection {
+  id         String   @id @default(cuid())
+  playerId   String
+  season     Int
+  week       Int
+  seasonType String   @default("regular")
+  nflTeam    String?
+  opponent   String?
+  stats      Json
+  ptsStd     Float?
+  ptsPpr     Float?
+  ptsHalfPpr Float?
+
+  rec       Float?
+  recYards  Float?
+  recTds    Float?
+  rushAtt   Float?
+  rushYards Float?
+  rushTds   Float?
+  passAtt   Float?
+  passCmp   Float?
+  passYards Float?
+  passTds   Float?
+  passInt   Float?
+
+  updatedAt DateTime @updatedAt
 
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 

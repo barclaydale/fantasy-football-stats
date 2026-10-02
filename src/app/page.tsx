@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { createTeam, deleteTeam, runManualSync } from "./actions";
 import { TeamSelect } from "./team-select";
@@ -21,7 +22,9 @@ function PlayerLine({
   return (
     <li className="flex items-center justify-between gap-2 text-sm">
       <span>
-        {player.fullName ?? "Unknown player"}{" "}
+        <Link href={`/players/${player.id}`} className="hover:underline">
+          {player.fullName ?? "Unknown player"}
+        </Link>{" "}
         <span className="text-gray-500">
           ({player.position ?? "—"}
           {player.nflTeam ? ` · ${player.nflTeam}` : ""})
@@ -82,7 +85,12 @@ export default async function Home({
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-10 p-8">
       <div>
-        <h1 className="text-3xl font-semibold">Welcome to Fantasy Football Stats</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-semibold">Welcome to Fantasy Football Stats</h1>
+          <Link href="/stats" className="text-sm text-gray-600 hover:underline">
+            Season stats →
+          </Link>
+        </div>
         <p className="mt-2 text-sm text-gray-500">
           {syncState?.lastSyncedAt
             ? `Synced from Sleeper: season ${syncState.season}, week ${syncState.week} (${syncState.seasonType}), last run ${syncState.lastSyncedAt.toLocaleString()}.`
