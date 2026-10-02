@@ -23,6 +23,11 @@ Sleeper has two relevant hosts:
 Both are free and need no auth, but `api.sleeper.com` is undocumented — if Sleeper ever changes
 its shape, `src/lib/sleeper.ts` is the one place that would need updating.
 
+Neither Sleeper host carries real kickoff times (their stats/projections payloads only have a bare
+date). For that, the Matchups page calls **ESPN's free public scoreboard API**
+(`site.api.espn.com`, also undocumented, also no key) — see `src/lib/espn-schedule.ts`. It's called
+live per page view (cached 1 hour via Next's fetch cache), not synced into the database.
+
 ## How it's put together
 
 - `prisma/schema.prisma`:
