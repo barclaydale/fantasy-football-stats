@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { computeTeamWeekScore, winProbability } from "@/lib/matchup-score";
 import { matchupsForWeek, SEASON_WEEKS } from "@/lib/schedule";
 import { computeStandings } from "@/lib/standings";
-import { TeamSide } from "./team-side";
+import { TeamSide, TeamStarters } from "./team-side";
 import { Card, EmptyState } from "../ui";
 
 export default async function MatchupsPage({
@@ -74,7 +74,6 @@ export default async function MatchupsPage({
         <EmptyState>No synced data yet — run a sync from the home page.</EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
-          <p className="-mt-2 text-xs text-muted">Tap a score to see the player-by-player breakdown.</p>
           {matchups.map(({ nameA, nameB, teamA, teamB, scoreA, scoreB, winPct, recordA, recordB }) => {
             const leftPct = winPct != null ? winPct : null;
             const rightPct = winPct != null ? 1 - winPct : null;
@@ -116,6 +115,12 @@ export default async function MatchupsPage({
                     {!teamA && `No team named "${nameA}" yet. `}
                     {!teamB && `No team named "${nameB}" yet.`}
                   </p>
+                )}
+                {(scoreA.players.length > 0 || scoreB.players.length > 0) && (
+                  <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-3">
+                    <TeamStarters players={scoreA.players} align="left" />
+                    <TeamStarters players={scoreB.players} align="right" />
+                  </div>
                 )}
               </Card>
             );

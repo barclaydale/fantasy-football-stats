@@ -1,7 +1,4 @@
-"use client";
-
-import { useState } from "react";
-import type { TeamWeekScore } from "@/lib/matchup-score";
+import type { PlayerLine, TeamWeekScore } from "@/lib/matchup-score";
 
 export function TeamSide({
   teamName,
@@ -16,21 +13,22 @@ export function TeamSide({
   winPct: number | null;
   align: "left" | "right";
 }) {
-  const [expanded, setExpanded] = useState(false);
   const favored = winPct != null && winPct >= 0.5;
   const items = align === "right" ? "items-end text-right" : "items-start text-left";
-  const hasPlayers = !!score && score.players.length > 0;
 
   return (
-    <div className={`flex flex-1 flex-col gap-1 ${items}`}>
+    <div className={`flex flex-1 flex-col gap-0.5 ${items}`}>
       <span className="font-semibold">{teamName}</span>
-      <button
-        type="button"
-        onClick={() => hasPlayers && setExpanded((e) => !e)}
-        className={`text-2xl font-bold ${hasPlayers ? "cursor-pointer transition-colors hover:text-accent" : "cursor-default"}`}
-      >
-        {score ? score.total.toFixed(1) : "—"}
-      </button>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-2xl font-bold">{score ? score.actualOnly.toFixed(1) : "—"}</span>
+        <span className="text-xs text-muted">actual</span>
+      </div>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-sm font-medium text-muted">
+          {score ? score.projectedTotal.toFixed(1) : "—"}
+        </span>
+        <span className="text-xs text-muted">proj</span>
+      </div>
       <div className="flex items-center gap-2 text-xs text-muted">
         {record && <span>{record}</span>}
         {winPct != null && (
@@ -39,24 +37,43 @@ export function TeamSide({
           </span>
         )}
       </div>
-
-      {expanded && hasPlayers && (
-        <ul className="mt-2 flex w-full flex-col gap-1 border-t border-border pt-2 text-xs">
-          {score!.players.map((p) => (
-            <li key={p.id} className="flex items-center justify-between gap-3">
-              <span className="truncate text-muted">
-                <span className="text-foreground">{p.name}</span>{" "}
-                {p.position}
-                {p.opponent ? ` vs ${p.opponent}` : ""}
-              </span>
-              <span className={`shrink-0 ${p.projected ? "text-muted" : "font-medium text-foreground"}`}>
-                {p.points.toFixed(1)}
-                {p.projected ? " proj" : ""}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
+  );
+}
+
+export function TeamStarters({
+  players,
+  align,
+}: {
+  players: PlayerLine[];
+  align: "left" | "right";
+}) {
+  const items = align === "right" ? "items-end" : "items-start";
+
+  return (
+    <ul className={`flex flex-col gap-1.5 text-xs ${items}`}>
+      {players.map((p) => (
+        <li
+          key={p.id}
+          className={`flex w-full items-center gap-2 ${align === "right" ? "flex-row-reverse" : ""}`}
+        >
+          <span className="min-w-0 flex-1 truncate text-muted">
+            <span className="text-foreground">{p.name}</span>
+            {p.position ? ` ${p.position}` : ""}
+            {p.opponent ? ` vs ${p.opponent}` : ""}
+          </span>
+          <span
+            className={`shrink-0 ${p.actualPoints != null ? "font-medium text-foreground" : "text-muted"}`}
+          >
+            {p.actualPoints != null
+              ? p.actualPoints.toFixed(1)
+              : p.projectedPoints != null
+                ? `${p.projectedPoints.toFixed(1)} proj`
+                : "—"}
+          </span>
+        </li>
+      ))}
+      {players.length === 0 && <li className="text-muted">No starters set.</li>}
+    </ul>
   );
 }

@@ -7,8 +7,10 @@ export type PlayerLine = {
   position: string | null;
   rosterSlot: string;
   opponent: string | null;
-  points: number;
-  projected: boolean;
+  /** Null until the player's game is in/final. */
+  actualPoints: number | null;
+  /** Pregame projection — null only if Sleeper never had one synced for this week. */
+  projectedPoints: number | null;
 };
 
 export type TeamWeekScore = {
@@ -16,6 +18,8 @@ export type TeamWeekScore = {
   total: number;
   /** Actual-only total (0 for anyone who hasn't played) — what standings use. */
   actualOnly: number;
+  /** Sum of every starter's pregame projection, regardless of whether they've played. */
+  projectedTotal: number;
   startersTotal: number;
   startersPlayed: number;
   /** Combined uncertainty left in `total`, for the win-probability model below. */
@@ -32,6 +36,7 @@ const PER_PLAYER_STD_DEV = 7;
 const EMPTY: TeamWeekScore = {
   total: 0,
   actualOnly: 0,
+  projectedTotal: 0,
   startersTotal: 0,
   startersPlayed: 0,
   stdDev: 0,
@@ -68,18 +73,20 @@ export async function computeTeamWeekScore(
 
   let total = 0;
   let actualOnly = 0;
+  let projectedTotal = 0;
   let played = 0;
   let remaining = 0;
   const players: PlayerLine[] = starters
     .map((p) => {
       const actual = actualByPlayer.get(p.id);
       const proj = projByPlayer.get(p.id);
-      const points = actual ? (actual.ptsPpr ?? 0) : (proj?.ptsPpr ?? 0);
-      const projected = !actual;
+      const actualPoints = actual ? (actual.ptsPpr ?? 0) : null;
+      const projectedPoints = proj ? (proj.ptsPpr ?? 0) : null;
 
-      total += points;
+      total += actualPoints ?? projectedPoints ?? 0;
+      projectedTotal += projectedPoints ?? 0;
       if (actual) {
-        actualOnly += actual.ptsPpr ?? 0;
+        actualOnly += actualPoints ?? 0;
         played += 1;
       } else {
         remaining += 1;
@@ -91,8 +98,8 @@ export async function computeTeamWeekScore(
         position: p.position,
         rosterSlot: p.rosterSlot,
         opponent: actual?.opponent ?? proj?.opponent ?? null,
-        points,
-        projected,
+        actualPoints,
+        projectedPoints,
       };
     })
     .sort(
@@ -104,6 +111,7 @@ export async function computeTeamWeekScore(
   return {
     total,
     actualOnly,
+    projectedTotal,
     startersTotal: ids.length,
     startersPlayed: played,
     stdDev: PER_PLAYER_STD_DEV * Math.sqrt(remaining),
