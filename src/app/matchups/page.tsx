@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { computeTeamWeekScore, winProbability } from "@/lib/matchup-score";
+import { computeTeamWeekScore, pairStarters, winProbability } from "@/lib/matchup-score";
 import { matchupsForWeek, SEASON_WEEKS } from "@/lib/schedule";
 import { computeStandings } from "@/lib/standings";
-import { TeamSide, TeamStarters } from "./team-side";
+import { MatchupStarters } from "./matchup-starters";
+import { TeamSide } from "./team-side";
 import { Card, EmptyState } from "../ui";
 
 export default async function MatchupsPage({
@@ -117,9 +118,8 @@ export default async function MatchupsPage({
                   </p>
                 )}
                 {(scoreA.players.length > 0 || scoreB.players.length > 0) && (
-                  <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-3">
-                    <TeamStarters players={scoreA.players} align="left" />
-                    <TeamStarters players={scoreB.players} align="right" />
+                  <div className="mt-4 border-t border-border pt-3">
+                    <MatchupStarters rows={pairStarters(scoreA.players, scoreB.players)} />
                   </div>
                 )}
               </Card>

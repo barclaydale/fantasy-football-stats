@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import { SLOT_ORDER } from "@/lib/roster-slots";
+import { ROSTER_SLOTS, SLOT_ORDER } from "@/lib/roster-slots";
 
 export type PlayerLine = {
   id: string;
   name: string;
   position: string | null;
+  nflTeam: string | null;
   rosterSlot: string;
   opponent: string | null;
   /** Null until the player's game is in/final. */
@@ -53,7 +54,7 @@ export async function computeTeamWeekScore(
 
   const starters = await prisma.player.findMany({
     where: { fantasyTeamId: teamId, rosterSlot: { not: "BN" } },
-    select: { id: true, fullName: true, position: true, rosterSlot: true },
+    select: { id: true, fullName: true, position: true, nflTeam: true, rosterSlot: true },
   });
   if (starters.length === 0) return EMPTY;
   const ids = starters.map((p) => p.id);
@@ -96,6 +97,7 @@ export async function computeTeamWeekScore(
         id: p.id,
         name: p.fullName ?? p.id,
         position: p.position,
+        nflTeam: p.nflTeam,
         rosterSlot: p.rosterSlot,
         opponent: actual?.opponent ?? proj?.opponent ?? null,
         actualPoints,
@@ -149,4 +151,37 @@ export function winProbability(a: TeamWeekScore, b: TeamWeekScore): number {
   const sd = Math.sqrt(a.stdDev ** 2 + b.stdDev ** 2);
   if (sd === 0) return diff > 0 ? 1 : diff < 0 ? 0 : 0.5;
   return normalCdf(diff / sd);
+}
+
+export type PairedRow = {
+  slotKey: string;
+  slotLabel: string;
+  slotColor: string;
+  left: PlayerLine | null;
+  right: PlayerLine | null;
+};
+
+// Lines both teams up position-by-position (QB vs QB, the two RBs vs the two
+// RBs, ...) for the side-by-side matchup view — same idea as Sleeper's own
+// "Starters" list. A slot with nobody assigned on either side is skipped;
+// one with a player on only one side still gets a row, with the other side
+// blank, so a gap in your lineup is visible rather than silently dropped.
+export function pairStarters(left: PlayerLine[], right: PlayerLine[]): PairedRow[] {
+  const rows: PairedRow[] = [];
+  for (const slot of ROSTER_SLOTS) {
+    if (slot.key === "BN") continue;
+    const leftGroup = left.filter((p) => p.rosterSlot === slot.key);
+    const rightGroup = right.filter((p) => p.rosterSlot === slot.key);
+    const count = Math.max(leftGroup.length, rightGroup.length);
+    for (let i = 0; i < count; i++) {
+      rows.push({
+        slotKey: slot.key,
+        slotLabel: slot.label,
+        slotColor: slot.color,
+        left: leftGroup[i] ?? null,
+        right: rightGroup[i] ?? null,
+      });
+    }
+  }
+  return rows;
 }

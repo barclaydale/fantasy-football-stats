@@ -1,4 +1,4 @@
-import type { PlayerLine, TeamWeekScore } from "@/lib/matchup-score";
+import type { TeamWeekScore } from "@/lib/matchup-score";
 
 export function TeamSide({
   teamName,
@@ -38,42 +38,5 @@ export function TeamSide({
         )}
       </div>
     </div>
-  );
-}
-
-export function TeamStarters({
-  players,
-  align,
-}: {
-  players: PlayerLine[];
-  align: "left" | "right";
-}) {
-  const items = align === "right" ? "items-end" : "items-start";
-
-  return (
-    <ul className={`flex flex-col gap-1.5 text-xs ${items}`}>
-      {players.map((p) => (
-        <li
-          key={p.id}
-          className={`flex w-full items-center gap-2 ${align === "right" ? "flex-row-reverse" : ""}`}
-        >
-          <span className="min-w-0 flex-1 truncate text-muted">
-            <span className="text-foreground">{p.name}</span>
-            {p.position ? ` ${p.position}` : ""}
-            {p.opponent ? ` vs ${p.opponent}` : ""}
-          </span>
-          <span
-            className={`shrink-0 ${p.actualPoints != null ? "font-medium text-foreground" : "text-muted"}`}
-          >
-            {p.actualPoints != null
-              ? p.actualPoints.toFixed(1)
-              : p.projectedPoints != null
-                ? `${p.projectedPoints.toFixed(1)} proj`
-                : "—"}
-          </span>
-        </li>
-      ))}
-      {players.length === 0 && <li className="text-muted">No starters set.</li>}
-    </ul>
   );
 }
