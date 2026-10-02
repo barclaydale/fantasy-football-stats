@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getWeekKickoffs, type TeamKickoff } from "@/lib/espn-schedule";
 import { prisma } from "@/lib/prisma";
 import { computeTeamWeekScore, pairStarters, winProbability } from "@/lib/matchup-score";
 import { matchupsForWeek, SEASON_WEEKS } from "@/lib/schedule";
@@ -35,10 +36,14 @@ export default async function MatchupsPage({
   const teamA = nameA ? teamByName.get(nameA.toLowerCase()) : undefined;
   const teamB = nameB ? teamByName.get(nameB.toLowerCase()) : undefined;
 
+  const kickoffs = season
+    ? await getWeekKickoffs(season, week, seasonType)
+    : new Map<string, TeamKickoff>();
+
   const [scoreA, scoreB] = season
     ? await Promise.all([
-        computeTeamWeekScore(teamA?.id, season, week, seasonType),
-        computeTeamWeekScore(teamB?.id, season, week, seasonType),
+        computeTeamWeekScore(teamA?.id, season, week, seasonType, kickoffs),
+        computeTeamWeekScore(teamB?.id, season, week, seasonType, kickoffs),
       ])
     : [null, null];
   const winPct = season && teamA && teamB && scoreA && scoreB ? winProbability(scoreA, scoreB) : null;

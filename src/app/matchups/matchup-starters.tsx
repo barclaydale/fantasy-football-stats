@@ -1,3 +1,4 @@
+import { formatKickoff } from "@/lib/espn-schedule";
 import type { PairedRow, PlayerLine } from "@/lib/matchup-score";
 import { playerImageUrl, shortPlayerName } from "@/lib/player-image";
 
@@ -33,11 +34,12 @@ function PlayerHalf({ player, align }: { player: PlayerLine | null; align: "left
 function StatusLine({ player, align }: { player: PlayerLine | null; align: "left" | "right" }) {
   if (!player) return <div className="flex-1" />;
   const played = player.actualPoints != null;
+  const timing = played ? "Final" : (player.kickoff ? formatKickoff(player.kickoff) : "Yet to play");
 
   return (
     <div className={`flex-1 truncate text-xs text-muted ${align === "right" ? "text-right" : "text-left"}`}>
-      {player.opponent ? `vs ${player.opponent} · ` : ""}
-      {played ? "Final" : "Yet to play"}
+      {timing}
+      {player.opponent ? ` vs ${player.opponent}` : ""}
     </div>
   );
 }

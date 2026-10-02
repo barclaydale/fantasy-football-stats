@@ -1,3 +1,4 @@
+import type { TeamKickoff } from "@/lib/espn-schedule";
 import { prisma } from "@/lib/prisma";
 import { ROSTER_SLOTS, SLOT_ORDER } from "@/lib/roster-slots";
 
@@ -8,6 +9,8 @@ export type PlayerLine = {
   nflTeam: string | null;
   rosterSlot: string;
   opponent: string | null;
+  /** From ESPN's schedule, not Sleeper — null if that team's game wasn't found this week (e.g. a bye). */
+  kickoff: Date | null;
   /** Null until the player's game is in/final. */
   actualPoints: number | null;
   /** Pregame projection — null only if Sleeper never had one synced for this week. */
@@ -77,6 +80,7 @@ export async function computeTeamWeekScore(
   season: number,
   week: number,
   seasonType: string,
+  kickoffs: Map<string, TeamKickoff> = new Map(),
 ): Promise<TeamWeekScore> {
   if (!teamId) return EMPTY;
 
@@ -128,6 +132,7 @@ export async function computeTeamWeekScore(
         nflTeam: p.nflTeam,
         rosterSlot: p.rosterSlot,
         opponent: actual?.opponent ?? proj?.opponent ?? null,
+        kickoff: (p.nflTeam ? kickoffs.get(p.nflTeam)?.kickoff : null) ?? null,
         actualPoints,
         projectedPoints,
       };
