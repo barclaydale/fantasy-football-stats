@@ -16,9 +16,12 @@ export function Card({
 }
 
 // Short code + color per Sleeper injury status. Anything not listed here
-// (Doubtful, Out, IR, PUP, Sus, ...) falls back to the full text in red.
+// (IR, PUP, Sus, ...) falls back to the full text in red.
+const DANGER_CLASS = "bg-danger-bg text-danger";
 const INJURY_DISPLAY: Record<string, { label: string; className: string }> = {
   Questionable: { label: "Q", className: "bg-warning/15 text-warning" },
+  Doubtful: { label: "D", className: DANGER_CLASS },
+  Out: { label: "O", className: DANGER_CLASS },
 };
 
 export function InjuryBadge({
@@ -32,7 +35,7 @@ export function InjuryBadge({
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${
-        display?.className ?? "bg-danger-bg text-danger"
+        display?.className ?? DANGER_CLASS
       }`}
     >
       {display?.label ?? status}
