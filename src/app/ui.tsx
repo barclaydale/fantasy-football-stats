@@ -2,6 +2,37 @@ import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import { slotColor } from "@/lib/roster-slots";
 
+export function PencilIcon(props: ComponentProps<"svg">) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} {...props}>
+      <path
+        d="M13.5 3.5l3 3L7 16H4v-3L13.5 3.5z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function CloseIcon(props: ComponentProps<"svg">) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} {...props}>
+      <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconButton(props: ComponentProps<"button">) {
+  const { className = "", ...rest } = props;
+  return (
+    <button
+      type="button"
+      {...rest}
+      className={`rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-hover hover:text-foreground ${className}`}
+    />
+  );
+}
+
 export function Card({
   className = "",
   children,

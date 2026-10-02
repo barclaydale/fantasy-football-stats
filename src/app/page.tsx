@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ROSTER_SLOTS, SLOT_ORDER } from "@/lib/roster-slots";
 import { createTeam, deleteTeam, runManualSync } from "./actions";
 import { EditTeamControl } from "./edit-team-control";
+import { EditTeamInfo } from "./edit-team-info";
 import { PositionSlotSelect } from "./position-slot-select";
 import { SearchForm } from "./search-form";
 import { TeamSelect } from "./team-select";
@@ -181,12 +182,12 @@ export default async function Home({
             {teams.map((team) => (
               <Card key={team.id} className="flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h2 className="font-semibold">
-                      {team.name} <span className="text-muted">({team.players.length})</span>
-                    </h2>
-                    {team.ownerName && <p className="text-sm text-muted">{team.ownerName}</p>}
-                  </div>
+                  <EditTeamInfo
+                    teamId={team.id}
+                    name={team.name}
+                    ownerName={team.ownerName}
+                    playerCount={team.players.length}
+                  />
                   <form action={deleteTeam.bind(null, team.id)}>
                     <GhostButton type="submit" className="px-2 py-1 text-xs">
                       Delete

@@ -16,6 +16,20 @@ export async function createTeam(formData: FormData) {
   revalidatePath("/");
 }
 
+export async function updateTeam(teamId: string, formData: FormData) {
+  const name = String(formData.get("name") ?? "").trim();
+  const ownerName = String(formData.get("ownerName") ?? "").trim();
+  if (!name) return;
+
+  await prisma.team.update({
+    where: { id: teamId },
+    data: { name, ownerName: ownerName || null },
+  });
+  revalidatePath("/");
+  revalidatePath("/matchups");
+  revalidatePath("/standings");
+}
+
 export async function deleteTeam(teamId: string) {
   await prisma.team.delete({ where: { id: teamId } });
   revalidatePath("/");
