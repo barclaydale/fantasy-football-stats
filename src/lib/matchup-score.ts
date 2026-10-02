@@ -1,4 +1,15 @@
 import { prisma } from "@/lib/prisma";
+import { SLOT_ORDER } from "@/lib/roster-slots";
+
+export type PlayerLine = {
+  id: string;
+  name: string;
+  position: string | null;
+  rosterSlot: string;
+  opponent: string | null;
+  points: number;
+  projected: boolean;
+};
 
 export type TeamWeekScore = {
   /** Actual points for starters who've played + projected points for starters who haven't. */
@@ -9,6 +20,7 @@ export type TeamWeekScore = {
   startersPlayed: number;
   /** Combined uncertainty left in `total`, for the win-probability model below. */
   stdDev: number;
+  players: PlayerLine[];
 };
 
 // Rough per-player weekly fantasy-point standard deviation. There's no real
@@ -23,6 +35,7 @@ const EMPTY: TeamWeekScore = {
   startersTotal: 0,
   startersPlayed: 0,
   stdDev: 0,
+  players: [],
 };
 
 export async function computeTeamWeekScore(
@@ -35,39 +48,58 @@ export async function computeTeamWeekScore(
 
   const starters = await prisma.player.findMany({
     where: { fantasyTeamId: teamId, rosterSlot: { not: "BN" } },
-    select: { id: true },
+    select: { id: true, fullName: true, position: true, rosterSlot: true },
   });
+  if (starters.length === 0) return EMPTY;
   const ids = starters.map((p) => p.id);
-  if (ids.length === 0) return EMPTY;
 
   const [statLines, projections] = await Promise.all([
     prisma.playerStatLine.findMany({
       where: { playerId: { in: ids }, season, week, seasonType },
-      select: { playerId: true, ptsPpr: true },
+      select: { playerId: true, ptsPpr: true, opponent: true },
     }),
     prisma.playerProjection.findMany({
       where: { playerId: { in: ids }, season, week, seasonType },
-      select: { playerId: true, ptsPpr: true },
+      select: { playerId: true, ptsPpr: true, opponent: true },
     }),
   ]);
-  const actualByPlayer = new Map(statLines.map((s) => [s.playerId, s.ptsPpr ?? 0]));
-  const projByPlayer = new Map(projections.map((p) => [p.playerId, p.ptsPpr ?? 0]));
+  const actualByPlayer = new Map(statLines.map((s) => [s.playerId, s]));
+  const projByPlayer = new Map(projections.map((p) => [p.playerId, p]));
 
   let total = 0;
   let actualOnly = 0;
   let played = 0;
   let remaining = 0;
-  for (const id of ids) {
-    const actual = actualByPlayer.get(id);
-    if (actual != null) {
-      total += actual;
-      actualOnly += actual;
-      played += 1;
-    } else {
-      total += projByPlayer.get(id) ?? 0;
-      remaining += 1;
-    }
-  }
+  const players: PlayerLine[] = starters
+    .map((p) => {
+      const actual = actualByPlayer.get(p.id);
+      const proj = projByPlayer.get(p.id);
+      const points = actual ? (actual.ptsPpr ?? 0) : (proj?.ptsPpr ?? 0);
+      const projected = !actual;
+
+      total += points;
+      if (actual) {
+        actualOnly += actual.ptsPpr ?? 0;
+        played += 1;
+      } else {
+        remaining += 1;
+      }
+
+      return {
+        id: p.id,
+        name: p.fullName ?? p.id,
+        position: p.position,
+        rosterSlot: p.rosterSlot,
+        opponent: actual?.opponent ?? proj?.opponent ?? null,
+        points,
+        projected,
+      };
+    })
+    .sort(
+      (a, b) =>
+        SLOT_ORDER.indexOf(a.rosterSlot) - SLOT_ORDER.indexOf(b.rosterSlot) ||
+        a.name.localeCompare(b.name),
+    );
 
   return {
     total,
@@ -75,6 +107,7 @@ export async function computeTeamWeekScore(
     startersTotal: ids.length,
     startersPlayed: played,
     stdDev: PER_PLAYER_STD_DEV * Math.sqrt(remaining),
+    players,
   };
 }
 

@@ -1,41 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { computeTeamWeekScore, winProbability, type TeamWeekScore } from "@/lib/matchup-score";
+import { computeTeamWeekScore, winProbability } from "@/lib/matchup-score";
 import { matchupsForWeek, SEASON_WEEKS } from "@/lib/schedule";
 import { computeStandings } from "@/lib/standings";
+import { TeamSide } from "./team-side";
 import { Card, EmptyState } from "../ui";
-
-function TeamSide({
-  teamName,
-  record,
-  score,
-  winPct,
-  align,
-}: {
-  teamName: string;
-  record: string | null;
-  score: TeamWeekScore | null;
-  winPct: number | null;
-  align: "left" | "right";
-}) {
-  const favored = winPct != null && winPct >= 0.5;
-  const items = align === "right" ? "items-end text-right" : "items-start text-left";
-
-  return (
-    <div className={`flex flex-1 flex-col gap-1 ${items}`}>
-      <span className="font-semibold">{teamName}</span>
-      <span className="text-2xl font-bold">{score ? score.total.toFixed(1) : "—"}</span>
-      <div className="flex items-center gap-2 text-xs text-muted">
-        {record && <span>{record}</span>}
-        {winPct != null && (
-          <span className={favored ? "font-semibold text-accent" : "font-semibold text-danger"}>
-            {Math.round(winPct * 100)}%
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default async function MatchupsPage({
   searchParams,
@@ -105,6 +74,7 @@ export default async function MatchupsPage({
         <EmptyState>No synced data yet — run a sync from the home page.</EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
+          <p className="-mt-2 text-xs text-muted">Tap a score to see the player-by-player breakdown.</p>
           {matchups.map(({ nameA, nameB, teamA, teamB, scoreA, scoreB, winPct, recordA, recordB }) => {
             const leftPct = winPct != null ? winPct : null;
             const rightPct = winPct != null ? 1 - winPct : null;

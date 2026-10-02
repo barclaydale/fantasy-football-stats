@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { historicalScore } from "@/lib/historical-results";
 import { matchupsForWeek } from "@/lib/schedule";
 
 export type TeamRecord = {
@@ -61,8 +62,8 @@ export async function computeStandings(
       const teamBId = teamByName.get(nameB.toLowerCase());
       if (!teamAId || !teamBId) continue;
 
-      const scoreA = scores.get(teamAId)?.get(week) ?? 0;
-      const scoreB = scores.get(teamBId)?.get(week) ?? 0;
+      const scoreA = historicalScore(week, nameA) ?? scores.get(teamAId)?.get(week) ?? 0;
+      const scoreB = historicalScore(week, nameB) ?? scores.get(teamBId)?.get(week) ?? 0;
       const recordA = records.get(teamAId)!;
       const recordB = records.get(teamBId)!;
 
