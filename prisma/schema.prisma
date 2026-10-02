@@ -53,6 +53,9 @@ model Player {
 
   fantasyTeamId String?
   fantasyTeam   Team?   @relation(fields: [fantasyTeamId], references: [id], onDelete: SetNull)
+  // Starting lineup vs bench, within whichever fantasy team rosters them.
+  // Meaningless for free agents (fantasyTeamId null) — ignored there.
+  rosterStatus  String  @default("bench") // active | bench
 
   statLines   PlayerStatLine[]
   projections PlayerProjection[]

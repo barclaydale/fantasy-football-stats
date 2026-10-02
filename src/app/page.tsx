@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { createTeam, deleteTeam, runManualSync } from "./actions";
+import { RosterStatusToggle } from "./roster-status-toggle";
 import { TeamSelect } from "./team-select";
 import { Button, Card, EmptyState, GhostButton, InjuryBadge, TextInput } from "./ui";
 
@@ -16,12 +17,20 @@ function PlayerRow({
     nflTeam: string | null;
     injuryStatus: string | null;
     fantasyTeamId: string | null;
+    rosterStatus: string;
   };
   pts: number | null | undefined;
   teams: { id: string; name: string }[];
 }) {
+  const rostered = player.fantasyTeamId != null;
+  const isActive = player.rosterStatus === "active";
+
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-surface-hover">
+    <li
+      className={`flex flex-wrap items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-surface-hover ${
+        rostered && !isActive ? "opacity-60" : ""
+      }`}
+    >
       <div className="flex min-w-0 items-center gap-2 text-sm">
         <Link
           href={`/players/${player.id}`}
@@ -38,7 +47,10 @@ function PlayerRow({
           <span className="shrink-0 font-medium text-accent">{pts.toFixed(1)} pts</span>
         )}
       </div>
-      <TeamSelect playerId={player.id} fantasyTeamId={player.fantasyTeamId} teams={teams} />
+      <div className="flex shrink-0 items-center gap-3">
+        {rostered && <RosterStatusToggle playerId={player.id} isActive={isActive} />}
+        <TeamSelect playerId={player.id} fantasyTeamId={player.fantasyTeamId} teams={teams} />
+      </div>
     </li>
   );
 }
@@ -56,7 +68,8 @@ export default async function Home({
   const [teams, freeAgents] = await Promise.all([
     prisma.team.findMany({
       orderBy: { name: "asc" },
-      include: { players: { orderBy: { fullName: "asc" } } },
+      // "active" sorts before "bench" alphabetically, so starters land on top.
+      include: { players: { orderBy: [{ rosterStatus: "asc" }, { fullName: "asc" }] } },
     }),
     prisma.player.findMany({
       where: {

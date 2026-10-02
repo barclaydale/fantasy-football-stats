@@ -24,8 +24,19 @@ export async function assignPlayerToTeam(playerId: string, formData: FormData) {
   const fantasyTeamId = String(formData.get("fantasyTeamId") ?? "").trim();
   await prisma.player.update({
     where: { id: playerId },
-    data: { fantasyTeamId: fantasyTeamId || null },
+    // Reset to bench on every reassignment (including dropping to free agency)
+    // so a player never shows up already "active" on a new team by accident.
+    data: { fantasyTeamId: fantasyTeamId || null, rosterStatus: "bench" },
   });
+  revalidatePath("/");
+}
+
+export async function toggleRosterStatus(playerId: string) {
+  await prisma.$executeRaw`
+    UPDATE "Player"
+    SET "rosterStatus" = CASE WHEN "rosterStatus" = 'active' THEN 'bench' ELSE 'active' END
+    WHERE "id" = ${playerId}
+  `;
   revalidatePath("/");
 }
 
