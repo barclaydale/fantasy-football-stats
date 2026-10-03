@@ -17,6 +17,8 @@ type Row = {
   gp: number;
   pts: number;
   ppg: number;
+  stdDev: number | null;
+  trimmedMean: number | null;
   rec: number;
   recYd: number;
   recTd: number;
@@ -31,6 +33,27 @@ type Row = {
   snapPct: number | null;
 };
 
+// Sample standard deviation (n-1 denominator — standard for treating a
+// season's games as a sample rather than the full population) of a player's
+// week-to-week PPR scoring. Needs at least 2 games to mean anything.
+function sampleStdDev(values: number[]): number | null {
+  if (values.length < 2) return null;
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  const variance =
+    values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / (values.length - 1);
+  return Math.sqrt(variance);
+}
+
+// Trimmed mean: average after dropping the single highest and single lowest
+// value — the same technique Olympic judging uses to drop high/low scores
+// before averaging. Needs at least 3 games, or there's nothing left to average.
+function trimmedMean(values: number[]): number | null {
+  if (values.length < 3) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const trimmed = sorted.slice(1, -1);
+  return trimmed.reduce((sum, v) => sum + v, 0) / trimmed.length;
+}
+
 // Accessor per sortable column, plus which direction makes sense to start
 // with when you first click it (names A-Z, everything else biggest-first).
 const COLUMNS: Record<string, { get: (r: Row) => number | string; defaultDir: "asc" | "desc" }> = {
@@ -39,6 +62,8 @@ const COLUMNS: Record<string, { get: (r: Row) => number | string; defaultDir: "a
   gp: { get: (r) => r.gp, defaultDir: "desc" },
   pts: { get: (r) => r.pts, defaultDir: "desc" },
   ppg: { get: (r) => r.ppg, defaultDir: "desc" },
+  stdDev: { get: (r) => r.stdDev ?? -1, defaultDir: "desc" },
+  trimmedMean: { get: (r) => r.trimmedMean ?? -1, defaultDir: "desc" },
   rec: { get: (r) => r.rec, defaultDir: "desc" },
   recYd: { get: (r) => r.recYd, defaultDir: "desc" },
   recTd: { get: (r) => r.recTd, defaultDir: "desc" },
@@ -122,13 +147,28 @@ export default async function PlayersPage({
     : [];
 
   const playerIds = totals.map((t) => t.playerId);
-  const players = playerIds.length
-    ? await prisma.player.findMany({
-        where: { id: { in: playerIds } },
-        select: { id: true, fullName: true, nflTeam: true, injuryStatus: true },
-      })
-    : [];
+  const [players, weeklyLines] = playerIds.length
+    ? await Promise.all([
+        prisma.player.findMany({
+          where: { id: { in: playerIds } },
+          select: { id: true, fullName: true, nflTeam: true, injuryStatus: true },
+        }),
+        prisma.playerStatLine.findMany({
+          // playerIds is only non-empty when `season` was truthy above.
+          where: { playerId: { in: playerIds }, season: season!, seasonType: "regular" },
+          select: { playerId: true, ptsPpr: true },
+        }),
+      ])
+    : [[], []];
   const playerById = new Map(players.map((p) => [p.id, p]));
+
+  const weeklyPtsByPlayer = new Map<string, number[]>();
+  for (const line of weeklyLines) {
+    if (line.ptsPpr == null) continue;
+    const arr = weeklyPtsByPlayer.get(line.playerId) ?? [];
+    arr.push(line.ptsPpr);
+    weeklyPtsByPlayer.set(line.playerId, arr);
+  }
 
   const showReceiving = position === "WR" || position === "TE" || position === "RB";
   const showRushing = position === "RB" || position === "QB";
@@ -139,6 +179,7 @@ export default async function PlayersPage({
     const player = playerById.get(t.playerId);
     const gp = t._count._all;
     const pts = t._sum.ptsPpr ?? 0;
+    const weeklyPts = weeklyPtsByPlayer.get(t.playerId) ?? [];
     return {
       playerId: t.playerId,
       name: player?.fullName ?? t.playerId,
@@ -147,6 +188,8 @@ export default async function PlayersPage({
       gp,
       pts,
       ppg: gp ? pts / gp : 0,
+      stdDev: sampleStdDev(weeklyPts),
+      trimmedMean: trimmedMean(weeklyPts),
       rec: t._sum.rec ?? 0,
       recYd: t._sum.recYards ?? 0,
       recTd: t._sum.recTds ?? 0,
@@ -213,6 +256,8 @@ export default async function PlayersPage({
               {sortableTh("gp", "GP")}
               {sortableTh("pts", "PPR pts")}
               {sortableTh("ppg", "Pts/G")}
+              {sortableTh("stdDev", "Std Dev")}
+              {sortableTh("trimmedMean", "Trimmed Avg")}
               {showReceiving && (
                 <>
                   {sortableTh("rec", "Rec")}
@@ -253,6 +298,10 @@ export default async function PlayersPage({
                 <td className={td}>{r.gp}</td>
                 <td className={`${td} font-semibold text-accent`}>{r.pts.toFixed(1)}</td>
                 <td className={td}>{r.gp ? r.ppg.toFixed(1) : "—"}</td>
+                <td className={`${td} text-muted`}>{r.stdDev != null ? r.stdDev.toFixed(1) : "—"}</td>
+                <td className={`${td} text-muted`}>
+                  {r.trimmedMean != null ? r.trimmedMean.toFixed(1) : "—"}
+                </td>
                 {showReceiving && (
                   <>
                     <td className={td}>{r.rec}</td>
