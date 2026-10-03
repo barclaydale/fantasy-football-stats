@@ -47,8 +47,10 @@ function zScores(values: number[]): number[] {
 }
 
 // Trimmed mean 50%, consistency 20%, volume 30% when a volume stat exists;
-// redistributed to 70/30 (trimmed mean/consistency) for K and DEF.
-export function rankBestAvailable(position: string, candidates: Candidate[]): RankedCandidate[] {
+// redistributed to 70/30 (trimmed mean/consistency) for K and DEF. Scores and
+// sorts the whole pool without truncating — callers decide how many rows to
+// show (e.g. always 5, or more to fit a rostered player who ranks lower).
+export function scoreCandidates(position: string, candidates: Candidate[]): RankedCandidate[] {
   const eligible = candidates.filter((c) => c.gp >= MIN_GAMES);
   if (eligible.length === 0) return [];
 
@@ -67,6 +69,13 @@ export function rankBestAvailable(position: string, candidates: Candidate[]): Ra
       // Subtracting the stddev z-score rewards consistency (lower volatility).
       compositeScore: wTrimmed * zTrimmed[i] - wConsistency * zStdDev[i] + wVolume * zVolume[i],
     }))
-    .sort((a, b) => b.compositeScore - a.compositeScore)
-    .slice(0, 5);
+    .sort((a, b) => b.compositeScore - a.compositeScore);
+}
+
+export function rankBestAvailable(
+  position: string,
+  candidates: Candidate[],
+  limit = 5,
+): RankedCandidate[] {
+  return scoreCandidates(position, candidates).slice(0, limit);
 }
