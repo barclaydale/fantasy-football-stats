@@ -46,10 +46,12 @@ function zScores(values: number[]): number[] {
   return values.map((v) => (v - mean) / sd);
 }
 
-// Trimmed mean 50%, consistency 20%, volume 30% when a volume stat exists;
-// redistributed to 70/30 (trimmed mean/consistency) for K and DEF. Scores and
-// sorts the whole pool without truncating — callers decide how many rows to
-// show (e.g. always 5, or more to fit a rostered player who ranks lower).
+// Trimmed mean carries 2/3 of the weight; the remaining 1/3 splits between
+// consistency and volume (2:3 ratio, same relative balance as before) when a
+// volume stat exists — 2/15 consistency, 1/5 volume. K and DEF (no volume
+// stat) put that whole remaining 1/3 on consistency. Scores and sorts the
+// whole pool without truncating — callers decide how many rows to show (e.g.
+// always 5, or more to fit a rostered player who ranks lower).
 export function scoreCandidates(position: string, candidates: Candidate[]): RankedCandidate[] {
   const eligible = candidates.filter((c) => c.gp >= MIN_GAMES);
   if (eligible.length === 0) return [];
@@ -59,9 +61,9 @@ export function scoreCandidates(position: string, candidates: Candidate[]): Rank
   const zStdDev = zScores(eligible.map((c) => c.stdDev));
   const zVolume = hasVolume ? zScores(eligible.map((c) => c.volume ?? 0)) : eligible.map(() => 0);
 
-  const wTrimmed = hasVolume ? 0.5 : 0.7;
-  const wConsistency = hasVolume ? 0.2 : 0.3;
-  const wVolume = hasVolume ? 0.3 : 0;
+  const wTrimmed = 2 / 3;
+  const wConsistency = hasVolume ? 2 / 15 : 1 / 3;
+  const wVolume = hasVolume ? 1 / 5 : 0;
 
   return eligible
     .map((c, i) => ({
