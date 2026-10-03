@@ -9,13 +9,87 @@ function isPosition(value: string | undefined): value is Position {
   return !!value && (POSITIONS as readonly string[]).includes(value);
 }
 
+type Row = {
+  playerId: string;
+  name: string;
+  team: string | null;
+  injuryStatus: string | null;
+  gp: number;
+  pts: number;
+  ppg: number;
+  rec: number;
+  recYd: number;
+  recTd: number;
+  rushAtt: number;
+  rushYd: number;
+  rushTd: number;
+  passCmp: number;
+  passAtt: number;
+  passYd: number;
+  passTd: number;
+  passInt: number;
+  snapPct: number | null;
+};
+
+// Accessor per sortable column, plus which direction makes sense to start
+// with when you first click it (names A-Z, everything else biggest-first).
+const COLUMNS: Record<string, { get: (r: Row) => number | string; defaultDir: "asc" | "desc" }> = {
+  name: { get: (r) => r.name, defaultDir: "asc" },
+  team: { get: (r) => r.team ?? "", defaultDir: "asc" },
+  gp: { get: (r) => r.gp, defaultDir: "desc" },
+  pts: { get: (r) => r.pts, defaultDir: "desc" },
+  ppg: { get: (r) => r.ppg, defaultDir: "desc" },
+  rec: { get: (r) => r.rec, defaultDir: "desc" },
+  recYd: { get: (r) => r.recYd, defaultDir: "desc" },
+  recTd: { get: (r) => r.recTd, defaultDir: "desc" },
+  rushAtt: { get: (r) => r.rushAtt, defaultDir: "desc" },
+  rushYd: { get: (r) => r.rushYd, defaultDir: "desc" },
+  rushTd: { get: (r) => r.rushTd, defaultDir: "desc" },
+  passCmp: { get: (r) => r.passCmp, defaultDir: "desc" },
+  passYd: { get: (r) => r.passYd, defaultDir: "desc" },
+  passTd: { get: (r) => r.passTd, defaultDir: "desc" },
+  passInt: { get: (r) => r.passInt, defaultDir: "desc" },
+  snapPct: { get: (r) => r.snapPct ?? -1, defaultDir: "desc" },
+};
+
+function SortableTh({
+  column,
+  label,
+  position,
+  sort,
+  dir,
+}: {
+  column: string;
+  label: string;
+  position: string;
+  sort: string;
+  dir: "asc" | "desc";
+}) {
+  const active = sort === column;
+  const nextDir = active ? (dir === "asc" ? "desc" : "asc") : COLUMNS[column].defaultDir;
+
+  return (
+    <th className={th}>
+      <Link
+        href={`/players?position=${position}&sort=${column}&dir=${nextDir}`}
+        className={`inline-flex items-center gap-1 transition-colors hover:text-foreground ${active ? "text-foreground" : ""}`}
+      >
+        {label}
+        {active && <span className="text-accent">{dir === "asc" ? "▲" : "▼"}</span>}
+      </Link>
+    </th>
+  );
+}
+
 export default async function PlayersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ position?: string }>;
+  searchParams: Promise<{ position?: string; sort?: string; dir?: string }>;
 }) {
-  const { position: rawPosition } = await searchParams;
+  const { position: rawPosition, sort: rawSort, dir: rawDir } = await searchParams;
   const position: Position = isPosition(rawPosition) ? rawPosition : "QB";
+  const sort = rawSort && COLUMNS[rawSort] ? rawSort : "pts";
+  const dir: "asc" | "desc" = rawDir === "asc" ? "asc" : "desc";
 
   const syncState = await prisma.syncState.findUnique({ where: { id: 1 } });
   const season = syncState?.season;
@@ -61,6 +135,48 @@ export default async function PlayersPage({
   const showPassing = position === "QB";
   const showSnaps = position !== "DEF" && position !== "K";
 
+  const rows: Row[] = totals.map((t) => {
+    const player = playerById.get(t.playerId);
+    const gp = t._count._all;
+    const pts = t._sum.ptsPpr ?? 0;
+    return {
+      playerId: t.playerId,
+      name: player?.fullName ?? t.playerId,
+      team: player?.nflTeam ?? null,
+      injuryStatus: player?.injuryStatus ?? null,
+      gp,
+      pts,
+      ppg: gp ? pts / gp : 0,
+      rec: t._sum.rec ?? 0,
+      recYd: t._sum.recYards ?? 0,
+      recTd: t._sum.recTds ?? 0,
+      rushAtt: t._sum.rushAtt ?? 0,
+      rushYd: t._sum.rushYards ?? 0,
+      rushTd: t._sum.rushTds ?? 0,
+      passCmp: t._sum.passCmp ?? 0,
+      passAtt: t._sum.passAtt ?? 0,
+      passYd: t._sum.passYards ?? 0,
+      passTd: t._sum.passTds ?? 0,
+      passInt: t._sum.passInt ?? 0,
+      snapPct:
+        t._sum.offSnaps != null && t._sum.teamOffSnaps
+          ? (t._sum.offSnaps / t._sum.teamOffSnaps) * 100
+          : null,
+    };
+  });
+
+  const { get } = COLUMNS[sort];
+  rows.sort((a, b) => {
+    const av = get(a);
+    const bv = get(b);
+    const cmp = typeof av === "string" ? av.localeCompare(bv as string) : av - (bv as number);
+    return dir === "asc" ? cmp : -cmp;
+  });
+
+  const sortableTh = (column: string, label: string) => (
+    <SortableTh column={column} label={label} position={position} sort={sort} dir={dir} />
+  );
+
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6 sm:p-8">
       <div className="flex flex-col gap-1">
@@ -86,98 +202,86 @@ export default async function PlayersPage({
 
       {!season ? (
         <EmptyState>No synced data yet — run a sync from the home page.</EmptyState>
-      ) : totals.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState>No stats yet for this position.</EmptyState>
       ) : (
         <TableShell>
           <thead>
             <tr className="border-b border-border">
-              <th className={th}>Player</th>
-              <th className={th}>Team</th>
-              <th className={th}>GP</th>
-              <th className={th}>PPR pts</th>
-              <th className={th}>Pts/G</th>
+              {sortableTh("name", "Player")}
+              {sortableTh("team", "Team")}
+              {sortableTh("gp", "GP")}
+              {sortableTh("pts", "PPR pts")}
+              {sortableTh("ppg", "Pts/G")}
               {showReceiving && (
                 <>
-                  <th className={th}>Rec</th>
-                  <th className={th}>Rec Yd</th>
-                  <th className={th}>Rec TD</th>
+                  {sortableTh("rec", "Rec")}
+                  {sortableTh("recYd", "Rec Yd")}
+                  {sortableTh("recTd", "Rec TD")}
                 </>
               )}
               {showRushing && (
                 <>
-                  <th className={th}>Rush Att</th>
-                  <th className={th}>Rush Yd</th>
-                  <th className={th}>Rush TD</th>
+                  {sortableTh("rushAtt", "Rush Att")}
+                  {sortableTh("rushYd", "Rush Yd")}
+                  {sortableTh("rushTd", "Rush TD")}
                 </>
               )}
               {showPassing && (
                 <>
-                  <th className={th}>Cmp/Att</th>
-                  <th className={th}>Pass Yd</th>
-                  <th className={th}>Pass TD</th>
-                  <th className={th}>Int</th>
+                  {sortableTh("passCmp", "Cmp/Att")}
+                  {sortableTh("passYd", "Pass Yd")}
+                  {sortableTh("passTd", "Pass TD")}
+                  {sortableTh("passInt", "Int")}
                 </>
               )}
-              {showSnaps && <th className={th}>Snap %</th>}
+              {showSnaps && sortableTh("snapPct", "Snap %")}
             </tr>
           </thead>
           <tbody>
-            {totals.map((t) => {
-              const player = playerById.get(t.playerId);
-              const gp = t._count._all;
-              const ptsPpr = t._sum.ptsPpr ?? 0;
-              const snapPct =
-                t._sum.offSnaps != null && t._sum.teamOffSnaps
-                  ? (t._sum.offSnaps / t._sum.teamOffSnaps) * 100
-                  : null;
-              return (
-                <tr key={t.playerId} className={tr}>
-                  <td className={td}>
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/players/${t.playerId}`}
-                        className="font-medium hover:text-accent"
-                      >
-                        {player?.fullName ?? t.playerId}
-                      </Link>
-                      {player?.injuryStatus && <InjuryBadge status={player.injuryStatus} />}
-                    </div>
-                  </td>
-                  <td className={`${td} text-muted`}>{player?.nflTeam ?? "—"}</td>
-                  <td className={td}>{gp}</td>
-                  <td className={`${td} font-semibold text-accent`}>{ptsPpr.toFixed(1)}</td>
-                  <td className={td}>{gp ? (ptsPpr / gp).toFixed(1) : "—"}</td>
-                  {showReceiving && (
-                    <>
-                      <td className={td}>{t._sum.rec ?? 0}</td>
-                      <td className={td}>{t._sum.recYards ?? 0}</td>
-                      <td className={td}>{t._sum.recTds ?? 0}</td>
-                    </>
-                  )}
-                  {showRushing && (
-                    <>
-                      <td className={td}>{t._sum.rushAtt ?? 0}</td>
-                      <td className={td}>{t._sum.rushYards ?? 0}</td>
-                      <td className={td}>{t._sum.rushTds ?? 0}</td>
-                    </>
-                  )}
-                  {showPassing && (
-                    <>
-                      <td className={td}>
-                        {t._sum.passCmp ?? 0}/{t._sum.passAtt ?? 0}
-                      </td>
-                      <td className={td}>{t._sum.passYards ?? 0}</td>
-                      <td className={td}>{t._sum.passTds ?? 0}</td>
-                      <td className={td}>{t._sum.passInt ?? 0}</td>
-                    </>
-                  )}
-                  {showSnaps && (
-                    <td className={td}>{snapPct != null ? `${snapPct.toFixed(0)}%` : "—"}</td>
-                  )}
-                </tr>
-              );
-            })}
+            {rows.map((r) => (
+              <tr key={r.playerId} className={tr}>
+                <td className={td}>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/players/${r.playerId}`} className="font-medium hover:text-accent">
+                      {r.name}
+                    </Link>
+                    {r.injuryStatus && <InjuryBadge status={r.injuryStatus} />}
+                  </div>
+                </td>
+                <td className={`${td} text-muted`}>{r.team ?? "—"}</td>
+                <td className={td}>{r.gp}</td>
+                <td className={`${td} font-semibold text-accent`}>{r.pts.toFixed(1)}</td>
+                <td className={td}>{r.gp ? r.ppg.toFixed(1) : "—"}</td>
+                {showReceiving && (
+                  <>
+                    <td className={td}>{r.rec}</td>
+                    <td className={td}>{r.recYd}</td>
+                    <td className={td}>{r.recTd}</td>
+                  </>
+                )}
+                {showRushing && (
+                  <>
+                    <td className={td}>{r.rushAtt}</td>
+                    <td className={td}>{r.rushYd}</td>
+                    <td className={td}>{r.rushTd}</td>
+                  </>
+                )}
+                {showPassing && (
+                  <>
+                    <td className={td}>
+                      {r.passCmp}/{r.passAtt}
+                    </td>
+                    <td className={td}>{r.passYd}</td>
+                    <td className={td}>{r.passTd}</td>
+                    <td className={td}>{r.passInt}</td>
+                  </>
+                )}
+                {showSnaps && (
+                  <td className={td}>{r.snapPct != null ? `${r.snapPct.toFixed(0)}%` : "—"}</td>
+                )}
+              </tr>
+            ))}
           </tbody>
         </TableShell>
       )}
