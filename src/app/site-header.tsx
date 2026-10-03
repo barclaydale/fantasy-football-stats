@@ -36,6 +36,9 @@ export async function SiteHeader() {
           <Link href="/players" className="text-muted transition-colors hover:text-foreground">
             Players
           </Link>
+          <Link href="/available" className="text-muted transition-colors hover:text-foreground">
+            Available
+          </Link>
           <span className="flex items-center gap-1.5 text-muted">
             <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotColor}`} aria-hidden />
             {statusText}

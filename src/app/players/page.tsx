@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { sampleStdDev, trimmedMean } from "@/lib/weekly-stats";
 import { BackLink, EmptyState, InjuryBadge, PositionTag, TableShell, td, th, tr } from "../ui";
 
 const POSITIONS = ["QB", "RB", "WR", "TE", "FLEX", "K", "DEF"] as const;
@@ -37,27 +38,6 @@ type Row = {
   passInt: number;
   snapPct: number | null;
 };
-
-// Sample standard deviation (n-1 denominator — standard for treating a
-// season's games as a sample rather than the full population) of a player's
-// week-to-week PPR scoring. Needs at least 2 games to mean anything.
-function sampleStdDev(values: number[]): number | null {
-  if (values.length < 2) return null;
-  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
-  const variance =
-    values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / (values.length - 1);
-  return Math.sqrt(variance);
-}
-
-// Trimmed mean: average after dropping the single highest and single lowest
-// value — the same technique Olympic judging uses to drop high/low scores
-// before averaging. Needs at least 3 games, or there's nothing left to average.
-function trimmedMean(values: number[]): number | null {
-  if (values.length < 3) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const trimmed = sorted.slice(1, -1);
-  return trimmed.reduce((sum, v) => sum + v, 0) / trimmed.length;
-}
 
 // Accessor per sortable column, plus which direction makes sense to start
 // with when you first click it (names A-Z, everything else biggest-first).
