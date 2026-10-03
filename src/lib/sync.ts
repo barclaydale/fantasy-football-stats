@@ -10,6 +10,10 @@ import {
 } from "@/lib/sleeper";
 
 const BATCH_SIZE = 500;
+// Sleeper has projections for the whole regular season available at once
+// (verified: real nonzero projections exist for week 14 same as week 5), not
+// just the upcoming week, so there's no reason to only sync one week at a time.
+const NFL_REGULAR_SEASON_WEEKS = 18;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -186,12 +190,12 @@ export type SyncSummary = {
 };
 
 // Pulls the full player list (identity + status/injury), the current week's
-// stats, and the current week's projections from Sleeper, and upserts all
-// three. Pass `backfillWeeks: true` once, after first attaching the database,
-// to also pull every earlier week's stats so there's a full season of history
-// instead of just the latest week (projections are only ever fetched for the
-// current week — there's no point backfilling a projection for a game already
-// played).
+// stats, and projections for every remaining week of the regular season from
+// Sleeper, and upserts all three. Pass `backfillWeeks: true` once, after
+// first attaching the database, to also pull every earlier week's stats so
+// there's a full season of history instead of just the latest week (past
+// weeks' projections aren't fetched — there's no point projecting a game
+// that's already been played).
 export async function syncSleeperData(
   options: { backfillWeeks?: boolean } = {},
 ): Promise<SyncSummary> {
@@ -220,10 +224,15 @@ export async function syncSleeperData(
 
     let projectionCount = 0;
     if (seasonType !== "pre") {
-      const projections = await getWeekProjections(season, currentWeek, "regular");
-      const filtered = projections.filter((l) => knownIds.has(l.player_id));
-      await upsertProjections(season, currentWeek, "regular", filtered);
-      projectionCount = filtered.length;
+      const projectionWeeks = [];
+      for (let week = currentWeek; week <= NFL_REGULAR_SEASON_WEEKS; week++) projectionWeeks.push(week);
+
+      for (const week of projectionWeeks) {
+        const projections = await getWeekProjections(season, week, "regular");
+        const filtered = projections.filter((l) => knownIds.has(l.player_id));
+        await upsertProjections(season, week, "regular", filtered);
+        projectionCount += filtered.length;
+      }
     }
 
     await prisma.syncState.upsert({
