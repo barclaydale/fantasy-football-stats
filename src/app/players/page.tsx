@@ -17,6 +17,7 @@ type Row = {
   position: string | null;
   team: string | null;
   injuryStatus: string | null;
+  fantasyTeam: string | null;
   rank: number;
   gp: number;
   pts: number;
@@ -65,6 +66,7 @@ const COLUMNS: Record<string, { get: (r: Row) => number | string; defaultDir: "a
   name: { get: (r) => r.name, defaultDir: "asc" },
   position: { get: (r) => r.position ?? "", defaultDir: "asc" },
   team: { get: (r) => r.team ?? "", defaultDir: "asc" },
+  fantasyTeam: { get: (r) => r.fantasyTeam ?? "Free agent", defaultDir: "asc" },
   gp: { get: (r) => r.gp, defaultDir: "desc" },
   pts: { get: (r) => r.pts, defaultDir: "desc" },
   ppg: { get: (r) => r.ppg, defaultDir: "desc" },
@@ -83,24 +85,31 @@ const COLUMNS: Record<string, { get: (r: Row) => number | string; defaultDir: "a
   snapPct: { get: (r) => r.snapPct ?? -1, defaultDir: "desc" },
 };
 
+// Fixed width for the frozen Rank column — the Player column's sticky
+// offset below has to match this exactly, or the two won't line up.
+const RANK_COL_WIDTH = "w-16";
+const STICKY_NAME_LEFT = "left-16";
+
 function SortableTh({
   column,
   label,
   position,
   sort,
   dir,
+  sticky,
 }: {
   column: string;
   label: string;
   position: string;
   sort: string;
   dir: "asc" | "desc";
+  sticky?: string;
 }) {
   const active = sort === column;
   const nextDir = active ? (dir === "asc" ? "desc" : "asc") : COLUMNS[column].defaultDir;
 
   return (
-    <th className={th}>
+    <th className={`${th} ${sticky ? `sticky z-10 bg-surface ${sticky}` : ""}`}>
       <Link
         href={`/players?position=${position}&sort=${column}&dir=${nextDir}`}
         className={`inline-flex items-center gap-1 transition-colors hover:text-foreground ${active ? "text-foreground" : ""}`}
@@ -161,7 +170,14 @@ export default async function PlayersPage({
     ? await Promise.all([
         prisma.player.findMany({
           where: { id: { in: playerIds } },
-          select: { id: true, fullName: true, position: true, nflTeam: true, injuryStatus: true },
+          select: {
+            id: true,
+            fullName: true,
+            position: true,
+            nflTeam: true,
+            injuryStatus: true,
+            fantasyTeam: { select: { name: true } },
+          },
         }),
         prisma.playerStatLine.findMany({
           // playerIds is only non-empty when `season` was truthy above.
@@ -197,6 +213,7 @@ export default async function PlayersPage({
       position: player?.position ?? null,
       team: player?.nflTeam ?? null,
       injuryStatus: player?.injuryStatus ?? null,
+      fantasyTeam: player?.fantasyTeam?.name ?? null,
       // totals arrives ordered by points desc, so this index is the points rank
       // before the display sort below reorders rows.
       rank: i + 1,
@@ -231,8 +248,8 @@ export default async function PlayersPage({
     return dir === "asc" ? cmp : -cmp;
   });
 
-  const sortableTh = (column: string, label: string) => (
-    <SortableTh column={column} label={label} position={position} sort={sort} dir={dir} />
+  const sortableTh = (column: string, label: string, sticky?: string) => (
+    <SortableTh column={column} label={label} position={position} sort={sort} dir={dir} sticky={sticky} />
   );
 
   return (
@@ -266,10 +283,11 @@ export default async function PlayersPage({
         <TableShell>
           <thead>
             <tr className="border-b border-border">
-              {sortableTh("rank", "Rank")}
-              {sortableTh("name", "Player")}
+              {sortableTh("rank", "Rank", `left-0 ${RANK_COL_WIDTH}`)}
+              {sortableTh("name", "Player", STICKY_NAME_LEFT)}
               {showPosition && sortableTh("position", "Pos")}
               {sortableTh("team", "Team")}
+              {sortableTh("fantasyTeam", "Roster")}
               {sortableTh("gp", "GP")}
               {sortableTh("pts", "PPR pts")}
               {sortableTh("ppg", "Pts/G")}
@@ -303,8 +321,10 @@ export default async function PlayersPage({
           <tbody>
             {rows.map((r) => (
               <tr key={r.playerId} className={tr}>
-                <td className={`${td} text-muted`}>{r.rank}</td>
-                <td className={td}>
+                <td className={`${td} sticky left-0 z-10 ${RANK_COL_WIDTH} bg-surface text-muted`}>
+                  {r.rank}
+                </td>
+                <td className={`${td} sticky ${STICKY_NAME_LEFT} z-10 bg-surface`}>
                   <div className="flex items-center gap-2">
                     <Link href={`/players/${r.playerId}`} className="font-medium hover:text-accent">
                       {r.name}
@@ -318,6 +338,21 @@ export default async function PlayersPage({
                   </td>
                 )}
                 <td className={`${td} text-muted`}>{r.team ?? "—"}</td>
+                <td className={td}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
+                        r.fantasyTeam ? "bg-accent" : "bg-border"
+                      }`}
+                      aria-hidden
+                    />
+                    {r.fantasyTeam ? (
+                      <span className="font-medium">{r.fantasyTeam}</span>
+                    ) : (
+                      <span className="text-muted">Free agent</span>
+                    )}
+                  </span>
+                </td>
                 <td className={td}>{r.gp}</td>
                 <td className={`${td} font-semibold text-accent`}>{r.pts.toFixed(1)}</td>
                 <td className={td}>{r.gp ? r.ppg.toFixed(1) : "—"}</td>
