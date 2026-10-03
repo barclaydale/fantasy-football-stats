@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { BackLink, EmptyState, InjuryBadge, TableShell, td, th, tr } from "../ui";
+import { BackLink, EmptyState, InjuryBadge, PositionTag, TableShell, td, th, tr } from "../ui";
 
-const POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"] as const;
+const POSITIONS = ["QB", "RB", "WR", "TE", "FLEX", "K", "DEF"] as const;
 type Position = (typeof POSITIONS)[number];
+// FLEX isn't a real player position — it's the standard WR/RB/TE flex pool.
+const FLEX_POSITIONS = ["WR", "RB", "TE"];
 
 function isPosition(value: string | undefined): value is Position {
   return !!value && (POSITIONS as readonly string[]).includes(value);
@@ -12,8 +14,10 @@ function isPosition(value: string | undefined): value is Position {
 type Row = {
   playerId: string;
   name: string;
+  position: string | null;
   team: string | null;
   injuryStatus: string | null;
+  rank: number;
   gp: number;
   pts: number;
   ppg: number;
@@ -57,7 +61,9 @@ function trimmedMean(values: number[]): number | null {
 // Accessor per sortable column, plus which direction makes sense to start
 // with when you first click it (names A-Z, everything else biggest-first).
 const COLUMNS: Record<string, { get: (r: Row) => number | string; defaultDir: "asc" | "desc" }> = {
+  rank: { get: (r) => r.rank, defaultDir: "asc" },
   name: { get: (r) => r.name, defaultDir: "asc" },
+  position: { get: (r) => r.position ?? "", defaultDir: "asc" },
   team: { get: (r) => r.team ?? "", defaultDir: "asc" },
   gp: { get: (r) => r.gp, defaultDir: "desc" },
   pts: { get: (r) => r.pts, defaultDir: "desc" },
@@ -122,7 +128,11 @@ export default async function PlayersPage({
   const totals = season
     ? await prisma.playerStatLine.groupBy({
         by: ["playerId"],
-        where: { season, seasonType: "regular", player: { position } },
+        where: {
+          season,
+          seasonType: "regular",
+          player: { position: position === "FLEX" ? { in: FLEX_POSITIONS } : position },
+        },
         _sum: {
           ptsPpr: true,
           rec: true,
@@ -151,7 +161,7 @@ export default async function PlayersPage({
     ? await Promise.all([
         prisma.player.findMany({
           where: { id: { in: playerIds } },
-          select: { id: true, fullName: true, nflTeam: true, injuryStatus: true },
+          select: { id: true, fullName: true, position: true, nflTeam: true, injuryStatus: true },
         }),
         prisma.playerStatLine.findMany({
           // playerIds is only non-empty when `season` was truthy above.
@@ -170,12 +180,13 @@ export default async function PlayersPage({
     weeklyPtsByPlayer.set(line.playerId, arr);
   }
 
-  const showReceiving = position === "WR" || position === "TE" || position === "RB";
-  const showRushing = position === "RB" || position === "QB";
+  const showReceiving = position === "WR" || position === "TE" || position === "RB" || position === "FLEX";
+  const showRushing = position === "RB" || position === "QB" || position === "FLEX";
   const showPassing = position === "QB";
   const showSnaps = position !== "DEF" && position !== "K";
+  const showPosition = position === "FLEX";
 
-  const rows: Row[] = totals.map((t) => {
+  const rows: Row[] = totals.map((t, i) => {
     const player = playerById.get(t.playerId);
     const gp = t._count._all;
     const pts = t._sum.ptsPpr ?? 0;
@@ -183,8 +194,12 @@ export default async function PlayersPage({
     return {
       playerId: t.playerId,
       name: player?.fullName ?? t.playerId,
+      position: player?.position ?? null,
       team: player?.nflTeam ?? null,
       injuryStatus: player?.injuryStatus ?? null,
+      // totals arrives ordered by points desc, so this index is the points rank
+      // before the display sort below reorders rows.
+      rank: i + 1,
       gp,
       pts,
       ppg: gp ? pts / gp : 0,
@@ -251,7 +266,9 @@ export default async function PlayersPage({
         <TableShell>
           <thead>
             <tr className="border-b border-border">
+              {sortableTh("rank", "Rank")}
               {sortableTh("name", "Player")}
+              {showPosition && sortableTh("position", "Pos")}
               {sortableTh("team", "Team")}
               {sortableTh("gp", "GP")}
               {sortableTh("pts", "PPR pts")}
@@ -286,6 +303,7 @@ export default async function PlayersPage({
           <tbody>
             {rows.map((r) => (
               <tr key={r.playerId} className={tr}>
+                <td className={`${td} text-muted`}>{r.rank}</td>
                 <td className={td}>
                   <div className="flex items-center gap-2">
                     <Link href={`/players/${r.playerId}`} className="font-medium hover:text-accent">
@@ -294,6 +312,11 @@ export default async function PlayersPage({
                     {r.injuryStatus && <InjuryBadge status={r.injuryStatus} />}
                   </div>
                 </td>
+                {showPosition && (
+                  <td className={td}>
+                    <PositionTag position={r.position} />
+                  </td>
+                )}
                 <td className={`${td} text-muted`}>{r.team ?? "—"}</td>
                 <td className={td}>{r.gp}</td>
                 <td className={`${td} font-semibold text-accent`}>{r.pts.toFixed(1)}</td>
