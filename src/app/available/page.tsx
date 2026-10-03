@@ -1,11 +1,52 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { rankBestAvailable, scoreCandidates, VOLUME_STAT, type Candidate } from "@/lib/best-available";
+import {
+  rankBestAvailable,
+  scoreCandidates,
+  VOLUME_STAT,
+  type Candidate,
+  type RankedCandidate,
+} from "@/lib/best-available";
 import { sampleStdDev, trimmedMean } from "@/lib/weekly-stats";
 import { TeamFilterSelect } from "./team-filter-select";
 import { BackLink, EmptyState, InjuryBadge, PositionTag, TableShell, td, th, tr } from "../ui";
 
 const POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"] as const;
+
+type DisplayRow = { kind: "player"; rank: number; candidate: RankedCandidate } | { kind: "gap" };
+
+// Always exactly the top 5 free agents, plus the selected team's own players
+// at their true rank — even if that's well outside the top 5 — with a gap
+// marker where free agents in between got skipped, rather than listing every
+// one of them just to reach a rostered player buried at #15.
+function buildDisplayRows(position: string, freeAgents: Candidate[], teamPlayers: Candidate[]): DisplayRow[] {
+  if (teamPlayers.length === 0) {
+    return rankBestAvailable(position, freeAgents).map((candidate, i) => ({
+      kind: "player",
+      rank: i + 1,
+      candidate,
+    }));
+  }
+
+  const ownedIds = new Set(teamPlayers.map((p) => p.playerId));
+  const ranked = scoreCandidates(position, [...freeAgents, ...teamPlayers]).map((candidate, i) => ({
+    rank: i + 1,
+    candidate,
+  }));
+
+  const topFreeAgents = ranked.filter((r) => !ownedIds.has(r.candidate.playerId)).slice(0, 5);
+  const ownedRows = ranked.filter((r) => ownedIds.has(r.candidate.playerId));
+  const merged = [...topFreeAgents, ...ownedRows].sort((a, b) => a.rank - b.rank);
+
+  const rows: DisplayRow[] = [];
+  merged.forEach((row, i) => {
+    if (i > 0 && row.rank !== merged[i - 1].rank + 1) {
+      rows.push({ kind: "gap" });
+    }
+    rows.push({ kind: "player", rank: row.rank, candidate: row.candidate });
+  });
+  return rows;
+}
 
 type StatLineTotal = {
   playerId: string;
@@ -149,23 +190,8 @@ export default async function AvailablePage({
           const freeAgents = freeAgentsByPosition.get(position) ?? [];
           const teamPlayers = teamByPosition.get(position) ?? [];
           const volumeStat = VOLUME_STAT[position];
-
-          // No team selected (or they have nobody at this position): the
-          // plain top-5 free-agent list, same as before.
-          let rows = rankBestAvailable(position, freeAgents);
           const ownedIds = new Set(teamPlayers.map((p) => p.playerId));
-
-          if (teamPlayers.length > 0) {
-            // Rank the combined pool and show at least 5 rows, extended far
-            // enough to include every one of the team's players at their
-            // true rank — even one that ranks below the top 5.
-            const combined = scoreCandidates(position, [...freeAgents, ...teamPlayers]);
-            let lastOwnedRank = 0;
-            combined.forEach((c, i) => {
-              if (ownedIds.has(c.playerId)) lastOwnedRank = i + 1;
-            });
-            rows = combined.slice(0, Math.max(5, lastOwnedRank));
-          }
+          const rows = buildDisplayRows(position, freeAgents, teamPlayers);
 
           return (
             <section key={position} className="flex flex-col gap-3">
@@ -189,11 +215,22 @@ export default async function AvailablePage({
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((p, i) => {
+                    {rows.map((row, i) => {
+                      if (row.kind === "gap") {
+                        return (
+                          <tr key={`gap-${i}`} className="border-t border-border">
+                            <td colSpan={volumeStat ? 8 : 7} className="px-4 py-1.5 text-center text-xs text-muted">
+                              ⋯
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      const p = row.candidate;
                       const owned = ownedIds.has(p.playerId);
                       return (
                         <tr key={p.playerId} className={`${tr} ${owned ? "bg-accent/5" : ""}`}>
-                          <td className={`${td} text-muted`}>{i + 1}</td>
+                          <td className={`${td} text-muted`}>{row.rank}</td>
                           <td className={td}>
                             <div className="flex items-center gap-2">
                               <Link
