@@ -16,6 +16,7 @@ export type Candidate = {
   team: string | null;
   injuryStatus: string | null;
   gp: number;
+  avgPts: number; // plain season average — trimmedMean is what the score actually uses
   trimmedMean: number;
   stdDev: number;
   volume: number | null;

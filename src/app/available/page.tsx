@@ -90,13 +90,15 @@ function buildCandidatesByPosition(
             ? (t._sum.recTargets ?? 0)
             : null;
 
+    const gp = t._count._all;
     const list = byPosition.get(player.position) ?? [];
     list.push({
       playerId: t.playerId,
       name: player.fullName ?? t.playerId,
       team: player.nflTeam,
       injuryStatus: player.injuryStatus,
-      gp: t._count._all,
+      gp,
+      avgPts: gp ? (t._sum.ptsPpr ?? 0) / gp : 0,
       trimmedMean: tm,
       stdDev: sd,
       volume,
@@ -208,6 +210,7 @@ export default async function AvailablePage({
                       <th className={th}>Player</th>
                       <th className={th}>Team</th>
                       <th className={th}>GP</th>
+                      <th className={th}>Avg</th>
                       <th className={th}>Trimmed Avg</th>
                       <th className={th}>Std Dev</th>
                       {volumeStat && <th className={th}>{volumeStat.label}</th>}
@@ -219,7 +222,7 @@ export default async function AvailablePage({
                       if (row.kind === "gap") {
                         return (
                           <tr key={`gap-${i}`} className="border-t border-border">
-                            <td colSpan={volumeStat ? 8 : 7} className="px-4 py-1.5 text-center text-xs text-muted">
+                            <td colSpan={volumeStat ? 9 : 8} className="px-4 py-1.5 text-center text-xs text-muted">
                               ⋯
                             </td>
                           </tr>
@@ -249,6 +252,7 @@ export default async function AvailablePage({
                           </td>
                           <td className={`${td} text-muted`}>{p.team ?? "—"}</td>
                           <td className={td}>{p.gp}</td>
+                          <td className={td}>{p.avgPts.toFixed(1)}</td>
                           <td className={`${td} font-semibold text-accent`}>
                             {p.trimmedMean.toFixed(1)}
                           </td>
